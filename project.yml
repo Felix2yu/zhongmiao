@@ -1,0 +1,139 @@
+name: Zhongmiao
+
+options:
+  bundleIdPrefix: im.yufei
+  deploymentTarget:
+    iOS: "27.0"
+    macOS: "27.0"
+  createIntermediateGroups: true
+  developmentLanguage: zh-Hans
+  groupSortPosition: top
+
+packages:
+  ZhongmiaoCore:
+    path: Packages/ZhongmiaoCore
+
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    DEAD_CODE_STRIPPING: YES
+    CLANG_ENABLE_MODULES: YES
+    SWIFT_EMIT_LOC_STRINGS: YES
+
+targets:
+  Zhongmiao:
+    type: application
+    platform: iOS
+    deploymentTarget: "27.0"
+    sources:
+      - path: Sources/Shared
+      - path: Sources/iOS
+      - path: Resources/Shared
+      - path: Resources/iOS
+    dependencies:
+      - package: ZhongmiaoCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: im.yufei.zhongmiao
+        PRODUCT_NAME: 众妙
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: NO
+        INFOPLIST_KEY_CFBundleDisplayName: 众妙
+    info:
+      path: Config/Info-iOS.plist
+      properties:
+        CFBundleDisplayName: 众妙
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDevelopmentRegion: zh_CN
+        LSRequiresIPhoneOS: true
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIApplicationSupportsIndirectInputEvents: true
+        ITSAppUsesNonExemptEncryption: false
+        # WebView 中承载的是自建 HTTP 服务，仅对网页内容放开 ATS，其余请求仍走 ATS。
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoadsInWebContent: true
+          NSAllowsLocalNetworking: true
+        NSLocalNetworkUsageDescription: 众妙需要访问局域网中的自建服务（如慎始、货殖等）。
+        NSCameraUsageDescription: 上传照片或扫描内容时需要使用相机。
+        NSPhotoLibraryUsageDescription: 从相册选择图片上传到你的自建服务。
+        NSMicrophoneUsageDescription: 录制语音时需要使用麦克风。
+        UIBackgroundModes:
+          - fetch
+          - remote-notification
+        BGTaskSchedulerPermittedIdentifiers:
+          - im.yufei.zhongmiao.refresh
+
+  ZhongmiaoMac:
+    type: application
+    platform: macOS
+    deploymentTarget: "27.0"
+    sources:
+      - path: Sources/Shared
+      - path: Sources/macOS
+      - path: Resources/Shared
+      - path: Resources/macOS
+    dependencies:
+      - package: ZhongmiaoCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: im.yufei.zhongmiao.mac
+        PRODUCT_NAME: 众妙
+        COMBINE_HIDPI_IMAGES: YES
+        INFOPLIST_KEY_CFBundleDisplayName: 众妙
+    info:
+      path: Config/Info-macOS.plist
+      properties:
+        CFBundleDisplayName: 众妙
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSMinimumSystemVersion: "27.0"
+        LSApplicationCategoryType: public.app-category.productivity
+        ITSAppUsesNonExemptEncryption: false
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoadsInWebContent: true
+          NSAllowsLocalNetworking: true
+        NSLocalNetworkUsageDescription: 众妙需要访问局域网中的自建服务。
+        NSCameraUsageDescription: 上传照片时需要使用相机。
+        NSPhotoLibraryUsageDescription: 从相册选择图片上传到你的自建服务。
+
+schemes:
+  Zhongmiao:
+    build:
+      targets:
+        Zhongmiao: all
+    run:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+  ZhongmiaoMac:
+    build:
+      targets:
+        ZhongmiaoMac: all
+    run:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release

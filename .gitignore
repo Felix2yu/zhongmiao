@@ -1,0 +1,26 @@
+.DS_Store
+
+# XcodeGen 生成物（以 project.yml 为准，避免合并冲突）
+Zhongmiao.xcodeproj/
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# SwiftPM
+.build/
+.swiftpm/
+Packages/*/.build/
+
+# 推送中继运行时数据
+server/push-relay/data/
+server/push-relay/*.log
+
+# 密钥（APNs .p8 / 共享密钥）
+*.p8
+secrets/
+
+# 本地/IDE 状态（非项目源，含助手项目记忆与编辑器会话规划）
+.workbuddy/
+.zcode/
