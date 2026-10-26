@@ -17,6 +17,15 @@ public struct ServiceDefinition: Codable, Identifiable, Hashable, Sendable {
         case utility
 
         public var isOfflineCapable: Bool { self == .pwa }
+
+        /// 离线能力的说明文案。
+        ///
+        /// 这里刻意避开单独的「离线」二字：它既可以读成「支持离线（能力）」，
+        /// 也可以读成「当前离线（状态）」。中文里这两种含义完全撞车，
+        /// 挂在卡片上会被误解成服务挂了，所以统一带上「可用／需要联网」。
+        public var offlineCapabilityDescription: String {
+            isOfflineCapable ? "离线可用" : "需要联网"
+        }
     }
 
     public enum Category: String, Codable, Sendable, CaseIterable, Identifiable {
@@ -116,6 +125,6 @@ public struct ServiceDefinition: Codable, Identifiable, Hashable, Sendable {
 
     /// 用于无障碍朗读的完整描述。
     public var accessibilityDescription: String {
-        "\(name)，\(summary)，\(kind.isOfflineCapable ? "支持离线" : "需要联网")"
+        "\(name)，\(summary)，\(kind.offlineCapabilityDescription)"
     }
 }

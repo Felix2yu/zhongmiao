@@ -12,12 +12,13 @@
 
 | 能力 | 实现方式 |
 | :-- | :-- |
-| 14 个应用的统一入口 | 服务网格 + 分类 + 搜索，每张卡片显示离线能力与未读数 |
+| 14 个应用的统一入口 | 服务网格 + 分类 + 搜索，每张卡片显示离线能力与未读数；能力标签可在设置里一键隐藏 |
 | 内嵌承载，功能可用 | WKWebView 持久化数据存储，保留各应用的 Cookie / localStorage / Service Worker 缓存 |
 | 离线可用 | 沿用各应用自己的 `sw.js` 缓存；断网时给原生错误页与重试，恢复网络自动 `reloadFromOrigin` |
 | 站内/站外分流 | 同站（含子域）留在应用内，外链交给系统浏览器，OAuth 域名白名单放行 |
 | 通知不丢 | 页面内 `Notification` 桥接 + ntfy / JSON 流轮询 + APNs 中继，三者共用一份去重账本 |
 | ntfy 主题浏览 | 读服务器 `/v1/topics`，点一下就订阅多个主题，不必进 ntfy 网页版 |
+| 已读状态同步 | 收服务端 `message_clear` 广播（别处读过这边也变已读），本地标已读再经 `/read` 推回服务端 |
 | 断线补发 | 每条通知带游标与去重键；离线排队，重连/回前台/授权后原地补投 |
 | 服务体检 | 并发探测 14 个服务，给出可达/需登录/证书/解析失败等具体原因 |
 | 下载与分享 | 非 HTML 响应自动走下载，落到「下载」目录；工具栏系统分享 |
@@ -34,7 +35,7 @@ open Zhongmiao.xcodeproj
 命令行验证：
 
 ```bash
-# 1) 核心逻辑单测（47 个用例，不需要模拟器）
+# 1) 核心逻辑单测（72 个用例，不需要模拟器）
 cd Packages/ZhongmiaoCore && swift test
 
 # 2) 双端编译
@@ -73,7 +74,7 @@ docker exec nginx nginx -t && docker exec nginx nginx -s reload
 project.yml                      XcodeGen 工程定义（iOS + macOS 双 target 共享源码）
 Packages/ZhongmiaoCore/          纯 Foundation 核心包：注册表、账本、去重、协议解析、退避
   Sources/ZhongmiaoCore/
-  Tests/ZhongmiaoCoreTests/      47 个用例
+  Tests/ZhongmiaoCoreTests/      72 个用例
 deploy/
   catalog.json                   注册表导出（由 zm-catalog 生成）
   nginx/gen_nginx.py             从注册表生成 Nginx 反代配置

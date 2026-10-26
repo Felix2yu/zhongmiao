@@ -119,8 +119,12 @@ struct SettingsView: View {
                     Label("逐服务配置", systemImage: "slider.horizontal.3")
                 }
                 LabeledContent("服务数量", value: "\(ServiceCatalog.all.count) 个")
+
+                Toggle("显示服务能力标签", isOn: $model.settings.showServiceCapabilityTags)
             } header: {
                 Text("服务")
+            } footer: {
+                Text("关掉后，应用卡片不再显示「离线可用」这类能力标签，只保留「未配置」等真正需要处理的提示。")
             }
 
             Section {

@@ -48,6 +48,12 @@ public struct NotificationItem: Codable, Identifiable, Hashable, Sendable {
     public var deliveredAt: Date?
     /// 原生侧首次拿到这条记录的时间。
     public var receivedAt: Date
+    /// ntfy 的消息 id（服务端 `id`）。标记已读时用它和服务器上的消息对上。
+    public var ntfyMessageID: String?
+    /// ntfy 的序列 id（服务端 `sequence_id`）。普通消息通常被服务端省略，此时用消息 id 兜底。
+    public var ntfySequenceID: String?
+    /// 消息所在的 ntfy 主题。标记已读的请求要发回这个主题。
+    public var ntfyTopic: String?
 
     public init(
         id: String,
@@ -60,7 +66,10 @@ public struct NotificationItem: Codable, Identifiable, Hashable, Sendable {
         source: Source = .feed,
         isRead: Bool = false,
         deliveredAt: Date? = nil,
-        receivedAt: Date = Date()
+        receivedAt: Date = Date(),
+        ntfyMessageID: String? = nil,
+        ntfySequenceID: String? = nil,
+        ntfyTopic: String? = nil
     ) {
         self.id = id
         self.serviceID = serviceID
@@ -73,6 +82,24 @@ public struct NotificationItem: Codable, Identifiable, Hashable, Sendable {
         self.isRead = isRead
         self.deliveredAt = deliveredAt
         self.receivedAt = receivedAt
+        self.ntfyMessageID = ntfyMessageID
+        self.ntfySequenceID = ntfySequenceID
+        self.ntfyTopic = ntfyTopic
+    }
+
+    /// 是否命中服务端广播的已读目标。
+    ///
+    /// 服务端用 `sequence_id` 寻址目标消息；而普通消息的 `sequence_id` 与消息 id 相同、
+    /// 在 JSON 里被省略，所以消息 id 也要认。
+    public func matchesNtfyTarget(_ targets: Set<String>) -> Bool {
+        if let sequenceID = ntfySequenceID, targets.contains(sequenceID) { return true }
+        if let messageID = ntfyMessageID, targets.contains(messageID) { return true }
+        return false
+    }
+
+    /// 标记已读请求要用的目标 id：优先序列 id，其次消息 id。
+    public var ntfyTargetID: String? {
+        NtfyActionID.targetID(sequenceID: ntfySequenceID, messageID: ntfyMessageID)
     }
 
     /// 生成稳定去重键：优先使用服务端事件 id，否则用内容指纹。

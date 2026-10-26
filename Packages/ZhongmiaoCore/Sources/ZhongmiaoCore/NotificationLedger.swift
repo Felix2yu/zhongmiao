@@ -106,6 +106,26 @@ public struct NotificationLedger: Codable, Sendable {
         }
     }
 
+    /// 把服务端广播的「已读」事件落到本地。
+    ///
+    /// 服务端把目标消息的 id 写进动作消息的 `sequence_id`；普通消息的 `sequence_id`
+    /// 与消息 id 相同、JSON 里被省略，因此匹配时消息 id 也要认（见
+    /// `NotificationItem.matchesNtfyTarget`）。
+    /// - Returns: 本次真正从未读翻成已读的条数。
+    @discardableResult
+    public mutating func markRead(ntfyTargets: [String], serviceID: String) -> Int {
+        guard !ntfyTargets.isEmpty else { return 0 }
+        let targets = Set(ntfyTargets)
+        var changed = 0
+        for index in items.indices {
+            guard items[index].serviceID == serviceID, !items[index].isRead else { continue }
+            guard items[index].matchesNtfyTarget(targets) else { continue }
+            items[index].isRead = true
+            changed += 1
+        }
+        return changed
+    }
+
     public var unreadCount: Int {
         items.filter { !$0.isRead }.count
     }

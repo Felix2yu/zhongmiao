@@ -56,6 +56,30 @@ struct FeedClients: Sendable {
         return data
     }
 
+    /// 执行请求并把 HTTP 状态码原样带回（不因 4xx/5xx 抛错）。
+    ///
+    /// 标记已读需要区分「服务端拒绝写入（401/403）」和「目标已不存在（404）」，
+    /// 所以不能走上面的 `data(_:)` —— 它会把所有非 2xx 都变成异常。
+    private func rawResponse(
+        _ url: URL,
+        headers: [String: String] = [:],
+        method: String = "GET",
+        timeout: TimeInterval = 15
+    ) async throws -> (Data, HTTPURLResponse) {
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.timeoutInterval = timeout
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        for (key, value) in headers {
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        return (data, http)
+    }
+
     /// 有限次重试；失败后交给下一次同步，不阻塞其它服务。
     func withRetry<T: Sendable>(
         attempts: Int = 3,
@@ -82,12 +106,12 @@ struct FeedClients: Sendable {
     ///
     /// 这是「浏览服务器主题、一键订阅」的数据源：不依赖 ntfy 网页版，内嵌页面里
     /// 顶部菜单被遮挡时也能正常加主题。
-    func fetchNtfyTopics(base: URL) async throws -> [String] {
+    func fetchNtfyTopics(base: URL, token: String? = nil) async throws -> [String] {
         struct TopicPage: Decodable {
             var topics: [String]
         }
         let payload = try await withRetry(attempts: 2) {
-            try await data(base.appendingPathComponent("v1/topics"))
+            try await data(base.appendingPathComponent("v1/topics"), headers: ntfyAuthHeaders(token: token))
         }
         let page = try JSONDecoder().decode(TopicPage.self, from: payload)
         var seen = Set<String>()
@@ -97,14 +121,41 @@ struct FeedClients: Sendable {
 
     // MARK: - ntfy
 
+    /// 一次 ntfy 轮询的结果。
+    struct NtfyPollResult: Sendable {
+        /// 可投递的真实消息。
+        var items: [NotificationItem] = []
+        /// 服务端广播的「已读」目标（消息 id 或序列 id）。
+        var clearedTargets: [String] = []
+        /// 本批消息（含动作事件）的最新时间，用来推进游标。
+        var newestAt: Date?
+    }
+
+    /// 标记已读请求的结果。
+    enum NtfyReadOutcome: Sendable, Equatable {
+        /// 服务端已接受。
+        case accepted
+        /// 目标已不在服务端（404）：想达到的状态已经成立。
+        case notFound
+        /// 服务端拒绝写入（401/403）：缺令牌或没有该主题的写权限，重试没有意义。
+        case rejected(status: Int)
+        /// 网络错误、429、5xx：可以稍后重试。
+        case failed
+    }
+
+    /// 拉一轮 ntfy 主题。
+    ///
+    /// 除了普通消息，流里还可能夹着服务端广播的动作事件：`message_clear` 表示
+    /// 「别处把这条消息标记为已读」，`message_delete` 表示消息已被删除。
     func fetchNtfy(
         base: URL,
         topic: String,
         serviceID: String,
-        since: Date
-    ) async throws -> [NotificationItem] {
+        since: Date,
+        token: String? = nil
+    ) async throws -> NtfyPollResult {
         let trimmedTopic = topic.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedTopic.isEmpty else { return [] }
+        guard !trimmedTopic.isEmpty else { return NtfyPollResult() }
 
         var components = URLComponents(
             url: base.appendingPathComponent(trimmedTopic).appendingPathComponent("json"),
@@ -116,12 +167,134 @@ struct FeedClients: Sendable {
         ]
         guard let url = components?.url else { throw URLError(.badURL) }
 
-        let payload = try await withRetry { try await data(url) }
-        guard !payload.isEmpty else { return [] }
+        let payload = try await withRetry {
+            try await data(url, headers: ntfyAuthHeaders(token: token))
+        }
+        guard !payload.isEmpty else { return NtfyPollResult() }
         var buffer = String(decoding: payload, as: UTF8.self)
         if !buffer.hasSuffix("\n") { buffer += "\n" }
-        return NtfyStreamDecoder.drain(buffer: &buffer)
-            .compactMap { $0.notificationItem(serviceID: serviceID, fallbackURL: base) }
+        let messages = NtfyStreamDecoder.drain(buffer: &buffer)
+
+        var result = NtfyPollResult()
+        var newest: Date?
+        var cleared = Set<String>()
+        for message in messages {
+            if let time = message.time {
+                let date = Date(timeIntervalSince1970: TimeInterval(time))
+                if newest == nil || date > newest! { newest = date }
+            }
+            // 已读事件不投递成通知，只用来把本地条目标成已读。
+            if message.isClearEvent, let target = message.actionTargetID {
+                cleared.insert(target)
+                continue
+            }
+            if let item = message.notificationItem(serviceID: serviceID, fallbackURL: base) {
+                result.items.append(item)
+            }
+        }
+        result.clearedTargets = Array(cleared)
+        result.newestAt = newest
+        return result
+    }
+
+    /// 告诉服务端「这些消息已读」：`GET {base}/{topic}/{id1,id2,…}/read`。
+    ///
+    /// 服务端把它变成一条 `message_clear` 广播，网页版与其它设备都会跟着把消息标成已读；
+    /// 众妙自己下一轮轮询也会收到这条回声（幂等，不会重复计数）。
+    ///
+    /// 本地已读状态已经落库，这里只是尽力而为：失败不影响本地，只会让服务端落后。
+    func markNtfyRead(
+        base: URL,
+        topic: String,
+        ids: [String],
+        token: String? = nil
+    ) async -> NtfyReadOutcome {
+        let chunks = NtfyActionID.chunks(ids)
+        guard !chunks.isEmpty else { return .accepted }
+        for chunk in chunks {
+            let outcome = await markNtfyReadChunk(base: base, topic: topic, ids: chunk, token: token)
+            switch outcome {
+            case .accepted, .notFound:
+                continue
+            case .rejected:
+                return outcome
+            case .failed:
+                // 上游 ntfy 的路由只认单个 id，批量形态会 404；这时降级逐个标记。
+                if chunk.count > 1 {
+                    return await markNtfyReadOneByOne(base: base, topic: topic, ids: chunk, token: token)
+                }
+                return outcome
+            }
+        }
+        return .accepted
+    }
+
+    /// 逐个标记已读（上游 ntfy 只认单个 id 的路由）。
+    private func markNtfyReadOneByOne(
+        base: URL,
+        topic: String,
+        ids: [String],
+        token: String?
+    ) async -> NtfyReadOutcome {
+        var worst: NtfyReadOutcome = .accepted
+        for id in ids {
+            let outcome = await markNtfyReadChunk(base: base, topic: topic, ids: [id], token: token)
+            switch outcome {
+            case .accepted, .notFound:
+                continue
+            case .rejected:
+                return outcome
+            case .failed:
+                worst = .failed
+            }
+        }
+        return worst
+    }
+
+    /// `GET {base}/{topic}/{ids}/read`。
+    private func markNtfyReadChunk(
+        base: URL,
+        topic: String,
+        ids: [String],
+        token: String?
+    ) async -> NtfyReadOutcome {
+        guard let url = actionURL(base: base, topic: topic, ids: ids, suffix: "read") else {
+            return .failed
+        }
+        do {
+            let (_, response) = try await rawResponse(url, headers: ntfyAuthHeaders(token: token))
+            switch response.statusCode {
+            case 200..<300:
+                return .accepted
+            case 404:
+                // 主题或消息已经不在服务端：想达到的状态已经成立。
+                return .notFound
+            case 401, 403:
+                return .rejected(status: response.statusCode)
+            default:
+                return .failed
+            }
+        } catch {
+            return .failed
+        }
+    }
+
+    /// 拼出 `/{topic}/{ids}/{suffix}` 形式的路径，保留 base 里的路径前缀。
+    ///
+    /// 不能用 `appendingPathComponent` —— 它会把 id 之间的逗号和分隔符一起编码掉。
+    private func actionURL(base: URL, topic: String, ids: [String], suffix: String) -> URL? {
+        guard var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else { return nil }
+        let basePath = components.path.hasSuffix("/")
+            ? String(components.path.dropLast())
+            : components.path
+        components.path = "\(basePath)/\(topic)/\(ids.joined(separator: ","))/\(suffix)"
+        return components.url
+    }
+
+    /// ntfy 的鉴权头。服务端开了访问控制时，读和写都要带令牌。
+    private func ntfyAuthHeaders(token: String?) -> [String: String] {
+        let trimmed = token?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? [:] : ["Authorization": "Bearer \(trimmed)"]
     }
 
     // MARK: - 通用 feed

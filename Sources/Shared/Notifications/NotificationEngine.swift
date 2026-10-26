@@ -9,6 +9,8 @@ struct SyncTarget: Sendable, Hashable {
     var feedPath: String?
     var ntfyTopic: String?
     var ntfyBaseURL: URL?
+    /// ntfy 访问令牌（服务端开了访问控制时必需）。
+    var ntfyToken: String
     var relayURL: URL?
     var relaySecret: String
 }
@@ -18,6 +20,8 @@ struct SyncReport: Sendable {
     var fetched = 0
     var inserted = 0
     var delivered = 0
+    /// 服务端广播的「已读」事件落到本地的条数。
+    var readSynced = 0
     var failures: [String: String] = [:]
     var skippedForPermission = false
     var finishedAt = Date()
@@ -32,12 +36,13 @@ struct SyncReport: Sendable {
             let pending = inserted > 0 ? "" : "（离线，\(delivered) 条已投递）"
             return "当前离线，恢复网络后自动补发\(pending)"
         }
-        if fetched == 0 && inserted == 0 && delivered == 0 && failures.isEmpty {
+        if fetched == 0 && inserted == 0 && delivered == 0 && readSynced == 0 && failures.isEmpty {
             return "已同步，没有新通知"
         }
         var parts: [String] = []
         if inserted > 0 { parts.append("新增 \(inserted) 条") }
         if delivered > 0 { parts.append("投递 \(delivered) 条") }
+        if readSynced > 0 { parts.append("已读同步 \(readSynced) 条") }
         if let failureSummary { parts.append("失败：\(failureSummary)") }
         if skippedForPermission { parts.append("未授权通知，已暂存") }
         return parts.isEmpty ? "已同步" : parts.joined(separator: " · ")
@@ -116,7 +121,7 @@ actor NotificationEngine {
                         )
                         report.fetched += items.count
                         report.inserted += ledger.merge(items).inserted.count
-                        advanceCursor(key: key, items: items, since: since, now: now)
+                        advanceCursor(key: key, newestAt: items.map(\.createdAt).max(), since: since, now: now)
                     } catch {
                         report.failures["\(target.serviceName) 通知流"] = Self.describe(error)
                     }
@@ -129,15 +134,21 @@ actor NotificationEngine {
                     let key = "\(target.serviceID)|ntfy"
                     do {
                         let since = ledger.fetchSince(serviceID: key, lookback: lookback)
-                        let items = try await feeds.fetchNtfy(
+                        let result = try await feeds.fetchNtfy(
                             base: ntfyBase,
                             topic: topic,
                             serviceID: target.serviceID,
-                            since: since
+                            since: since,
+                            token: target.ntfyToken
                         )
-                        report.fetched += items.count
-                        report.inserted += ledger.merge(items).inserted.count
-                        advanceCursor(key: key, items: items, since: since, now: now)
+                        report.fetched += result.items.count
+                        report.inserted += ledger.merge(result.items).inserted.count
+                        // 服务端广播的「已读」：别处读过的消息，这里也标成已读。
+                        report.readSynced += ledger.markRead(
+                            ntfyTargets: result.clearedTargets,
+                            serviceID: target.serviceID
+                        )
+                        advanceCursor(key: key, newestAt: result.newestAt, since: since, now: now)
                     } catch {
                         report.failures["\(target.serviceName) ntfy"] = Self.describe(error)
                     }
@@ -156,7 +167,7 @@ actor NotificationEngine {
                         )
                         report.fetched += items.count
                         report.inserted += ledger.merge(items).inserted.count
-                        advanceCursor(key: key, items: items, since: since, now: now)
+                        advanceCursor(key: key, newestAt: items.map(\.createdAt).max(), since: since, now: now)
                     } catch {
                         report.failures["\(target.serviceName) 中继"] = Self.describe(error)
                     }
@@ -264,9 +275,11 @@ actor NotificationEngine {
     // MARK: - 内部
 
     /// 游标推进：取本批最新事件时间与请求起点中较大者，绝不超过当前时间。
-    private func advanceCursor(key: String, items: [NotificationItem], since: Date, now: Date) {
-        let newest = items.map(\.createdAt).max() ?? now
-        let candidate = min(max(newest, since.addingTimeInterval(1)), now)
+    ///
+    /// ntfy 通道传的是「本批消息（含动作事件）的最新时间」——只收到一条已读广播时，
+    /// 游标同样要往前走，否则每次同步都会把同一条广播重复拉回来。
+    private func advanceCursor(key: String, newestAt: Date?, since: Date, now: Date) {
+        let candidate = min(max(newestAt ?? now, since.addingTimeInterval(1)), now)
         ledger.advanceCursor(serviceID: key, to: candidate)
     }
 

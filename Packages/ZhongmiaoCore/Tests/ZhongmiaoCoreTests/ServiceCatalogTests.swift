@@ -109,4 +109,29 @@ struct ServiceCatalogTests {
         let url = try #require(ServiceURLResolver.url(for: service, settings: settings))
         #expect(url.host == "bili.example.com")
     }
+
+    @Test("离线能力文案不与「服务离线」状态撞车")
+    func offlineCapabilityWording() {
+        // 「离线」二字在中文里既能读成能力、也能读成状态。
+        // 挂在卡片上的文案必须自带「可用／需要联网」这类限定词，
+        // 否则会被理解成服务当前挂了。
+        #expect(ServiceDefinition.Kind.pwa.offlineCapabilityDescription == "离线可用")
+        #expect(ServiceDefinition.Kind.web.offlineCapabilityDescription == "需要联网")
+        #expect(ServiceDefinition.Kind.utility.offlineCapabilityDescription == "需要联网")
+
+        // 任何一种形态的文案都不能退化成裸的「离线」。
+        for kind in ServiceDefinition.Kind.allCases {
+            #expect(kind.offlineCapabilityDescription != "离线")
+            #expect(kind.offlineCapabilityDescription.count > 2)
+        }
+    }
+
+    @Test("无障碍描述带上离线能力限定词")
+    func accessibilityDescriptionMentionsCapability() throws {
+        let pwa = try #require(ServiceCatalog.service(id: "shenshi"))
+        #expect(pwa.accessibilityDescription.contains("离线可用"))
+
+        let web = try #require(ServiceCatalog.service(id: "qbhive"))
+        #expect(web.accessibilityDescription.contains("需要联网"))
+    }
 }

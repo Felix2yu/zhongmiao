@@ -127,6 +127,15 @@ struct NtfyTopicsView: View {
             } footer: {
                 Text("留空时按「接入方式」解析出 ntfy 子域。填 https://ntfy.你的域名 可单独指定。")
             }
+
+            Section {
+                SecureField("访问令牌（服务器不校验时可留空）", text: $model.settings.ntfyToken)
+                    .zmPlainTextInput()
+            } header: {
+                Text("访问令牌")
+            } footer: {
+                Text("服务端启用访问控制（auth-file）时，读主题和「标记已读」都要带令牌。令牌需要对该主题有写权限，否则已读状态只能留在本机、不会同步到网页版和别的设备。")
+            }
         }
         .navigationTitle("ntfy 主题")
         #if os(iOS)
@@ -139,6 +148,9 @@ struct NtfyTopicsView: View {
         .onChange(of: model.settings.ntfyBaseURLOverride) { _, _ in
             model.persistSettings()
             Task { await load() }
+        }
+        .onChange(of: model.settings.ntfyToken) { _, _ in
+            model.persistSettings()
         }
         .refreshable {
             await load()

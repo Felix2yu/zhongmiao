@@ -97,6 +97,50 @@ struct NtfyTests {
     }
 }
 
+@Suite("ntfy 已读事件")
+struct NtfyClearEventTests {
+
+    @Test("解析 sequence_id 与已读事件")
+    func decodesClearEvent() throws {
+        let line = #"{"id":"evt1","time":1700000005,"event":"message_clear","topic":"ops","sequence_id":"msg1"}"#
+        let message = try #require(NtfyStreamDecoder.decode(line: line))
+        #expect(message.isClearEvent)
+        #expect(message.eventName == "message_clear")
+        #expect(message.sequenceID == "msg1")
+        // 目标取自 sequence_id，不是动作消息自己的 id。
+        #expect(message.actionTargetID == "msg1")
+        // 已读事件不是可投递消息，也不该进收件箱。
+        #expect(message.isDeliverable == false)
+        #expect(message.notificationItem(serviceID: "ntfy") == nil)
+    }
+
+    @Test("普通消息通常不带 sequence_id")
+    func decodesMessageWithoutSequenceID() throws {
+        let line = #"{"id":"msg2","time":1700000000,"event":"message","topic":"ops","message":"hi"}"#
+        let message = try #require(NtfyStreamDecoder.decode(line: line))
+        #expect(message.sequenceID == nil)
+        #expect(message.actionTargetID == nil)
+        #expect(message.isClearEvent == false)
+    }
+
+    @Test("转换后的条目带上 ntfy 元数据")
+    func itemCarriesNtfyMetadata() throws {
+        let message = NtfyMessage(
+            id: "msg3",
+            time: 1_700_000_000,
+            event: "message",
+            topic: "ops",
+            message: "磁盘使用率 91%",
+            sequenceID: "seq3"
+        )
+        let item = try #require(message.notificationItem(serviceID: "ntfy:ops"))
+        #expect(item.ntfyMessageID == "msg3")
+        #expect(item.ntfySequenceID == "seq3")
+        #expect(item.ntfyTopic == "ops")
+        #expect(item.ntfyTargetID == "seq3")
+    }
+}
+
 @Suite("通用通知流")
 struct FeedTests {
 

@@ -99,7 +99,8 @@ struct CatalogView: View {
                 service: service,
                 unread: unreadCount(for: service),
                 isConfigured: resolved != nil,
-                isOfflineReady: service.kind.isOfflineCapable
+                isOfflineReady: service.kind.isOfflineCapable,
+                showsCapabilityTag: model.settings.showServiceCapabilityTags
             )
         }
         .buttonStyle(.plain)
@@ -139,10 +140,10 @@ struct CatalogView: View {
 
     private var footer: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("共 \(ServiceCatalog.all.count) 个服务 · \(ServiceCatalog.all.filter(\.kind.isOfflineCapable).count) 个支持离线")
+            Text("共 \(ServiceCatalog.all.count) 个服务 · \(ServiceCatalog.all.filter(\.kind.isOfflineCapable).count) 个离线可用")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Text("全部应用经 Nginx 以 HTTPS 子域名提供，Service Worker 可正常注册，离线缓存生效。内网端口直连只用于排障。")
+            Text("「离线可用」指该应用自带 Service Worker 缓存，断网也能打开，不代表服务当前的状态。全部应用经 Nginx 以 HTTPS 子域名提供，内网端口直连只用于排障。")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -156,6 +157,8 @@ struct ServiceCard: View {
     let unread: Int
     let isConfigured: Bool
     let isOfflineReady: Bool
+    /// 是否显示离线能力标签（设置里的开关）。
+    var showsCapabilityTag = true
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -188,8 +191,12 @@ struct ServiceCard: View {
             }
 
             HStack(spacing: 4) {
-                if isOfflineReady {
-                    CapsuleTag(text: "离线", systemImage: "arrow.down.circle", tint: .green)
+                if showsCapabilityTag && isOfflineReady {
+                    CapsuleTag(
+                        text: "离线可用",
+                        systemImage: "arrow.down.to.line",
+                        tint: .green
+                    )
                 }
                 if !isConfigured {
                     CapsuleTag(text: "未配置", systemImage: "exclamationmark", tint: .orange)

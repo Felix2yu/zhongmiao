@@ -47,12 +47,18 @@ struct AppSettings: Codable, Hashable, Sendable {
     var relaySecret: String
     /// ntfy 服务地址覆盖（默认取注册表里 ntfy 的解析结果）。
     var ntfyBaseURLOverride: String
+    /// ntfy 访问令牌。服务端开了访问控制时，读主题与「标记已读」都要带它。
+    var ntfyToken: String
     /// 后台刷新开关。
     var backgroundRefreshEnabled: Bool
     /// 冷启动回看窗口（小时）。
     var lookbackHours: Int
     /// 收件箱容量。
     var inboxCapacity: Int
+    /// 是否在服务卡片上显示「离线可用」等能力标签。
+    ///
+    /// 默认开启；关掉后卡片只保留「未配置」这类真正需要处理的告警。
+    var showServiceCapabilityTags: Bool
 
     init(
         addressing: AddressSettings = .default,
@@ -60,18 +66,44 @@ struct AppSettings: Codable, Hashable, Sendable {
         relayURL: String = "",
         relaySecret: String = "",
         ntfyBaseURLOverride: String = "",
+        ntfyToken: String = "",
         backgroundRefreshEnabled: Bool = true,
         lookbackHours: Int = 24,
-        inboxCapacity: Int = 500
+        inboxCapacity: Int = 500,
+        showServiceCapabilityTags: Bool = true
     ) {
         self.addressing = addressing
         self.servicePreferences = servicePreferences
         self.relayURL = relayURL
         self.relaySecret = relaySecret
         self.ntfyBaseURLOverride = ntfyBaseURLOverride
+        self.ntfyToken = ntfyToken
         self.backgroundRefreshEnabled = backgroundRefreshEnabled
         self.lookbackHours = lookbackHours
         self.inboxCapacity = inboxCapacity
+        self.showServiceCapabilityTags = showServiceCapabilityTags
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case addressing, servicePreferences, relayURL, relaySecret
+        case ntfyBaseURLOverride, ntfyToken, backgroundRefreshEnabled, lookbackHours, inboxCapacity
+        case showServiceCapabilityTags
+    }
+
+    /// 逐字段解码，新增字段缺失时回落到默认值 —— 旧版本存下的设置不能因为
+    /// 多了 `ntfyToken` 就整份解码失败。
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        addressing = try container.decodeIfPresent(AddressSettings.self, forKey: .addressing) ?? .default
+        servicePreferences = try container.decodeIfPresent([String: ServicePreference].self, forKey: .servicePreferences) ?? [:]
+        relayURL = try container.decodeIfPresent(String.self, forKey: .relayURL) ?? ""
+        relaySecret = try container.decodeIfPresent(String.self, forKey: .relaySecret) ?? ""
+        ntfyBaseURLOverride = try container.decodeIfPresent(String.self, forKey: .ntfyBaseURLOverride) ?? ""
+        ntfyToken = try container.decodeIfPresent(String.self, forKey: .ntfyToken) ?? ""
+        backgroundRefreshEnabled = try container.decodeIfPresent(Bool.self, forKey: .backgroundRefreshEnabled) ?? true
+        lookbackHours = try container.decodeIfPresent(Int.self, forKey: .lookbackHours) ?? 24
+        inboxCapacity = try container.decodeIfPresent(Int.self, forKey: .inboxCapacity) ?? 500
+        showServiceCapabilityTags = try container.decodeIfPresent(Bool.self, forKey: .showServiceCapabilityTags) ?? true
     }
 
     func preference(for service: ServiceDefinition) -> ServicePreference {

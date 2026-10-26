@@ -52,6 +52,8 @@ final class AppModel {
     private var notificationDelegate: NotificationDelegate?
     private var observers: [NSObjectProtocol] = []
     private var hasActivated = false
+    /// 服务端上次拒绝「标记已读」时用的令牌。换了令牌才值得再试。
+    private var ntfyRejectedToken: String?
 
     // MARK: - 页面路由
 
@@ -188,7 +190,7 @@ final class AppModel {
             ))
         }
         do {
-            return .success(try await feeds.fetchNtfyTopics(base: base))
+            return .success(try await feeds.fetchNtfyTopics(base: base, token: settings.ntfyToken))
         } catch {
             return .failure(NtfyTopicsError(message: Self.describe(error)))
         }
@@ -223,6 +225,7 @@ final class AppModel {
                     feedPath: hasFeed ? feedPath : nil,
                     ntfyTopic: hasTopic ? topic : nil,
                     ntfyBaseURL: hasTopic ? ntfyBase : nil,
+                    ntfyToken: settings.ntfyToken,
                     relayURL: useRelay ? relay : nil,
                     relaySecret: settings.relaySecret
                 )
@@ -241,6 +244,7 @@ final class AppModel {
                         feedPath: nil,
                         ntfyTopic: topic,
                         ntfyBaseURL: ntfyBase,
+                        ntfyToken: settings.ntfyToken,
                         relayURL: nil,
                         relaySecret: ""
                     )
@@ -363,11 +367,61 @@ final class AppModel {
     // MARK: - 收件箱操作
 
     func markRead(_ item: NotificationItem) {
-        Task { snapshot = await engine.markRead(id: item.id) }
+        Task {
+            snapshot = await engine.markRead(id: item.id)
+            await pushReadStateToServer([item])
+        }
     }
 
     func markAllRead(serviceID: String? = nil) {
-        Task { snapshot = await engine.markAllRead(serviceID: serviceID) }
+        // 先记下要推送的条目：标记之后它们就都是已读状态了。
+        let affected = snapshot.items.filter { item in
+            (serviceID == nil || item.serviceID == serviceID) && !item.isRead
+        }
+        Task {
+            snapshot = await engine.markAllRead(serviceID: serviceID)
+            await pushReadStateToServer(affected)
+        }
+    }
+
+    /// 把已读状态推回 ntfy 服务端，让网页版和其它设备也跟着变成已读。
+    ///
+    /// 服务端把它转成一条 `message_clear` 广播，订阅同一主题的人都会看到。
+    /// 本地状态先落库，推送是尽力而为：推失败不影响本地，只是服务端暂时落后。
+    private func pushReadStateToServer(_ items: [NotificationItem]) async {
+        // 上次被服务端拒绝过就别再试了，除非令牌换了。
+        guard ntfyRejectedToken != settings.ntfyToken else { return }
+        guard let base = resolvedNtfyBase() else { return }
+
+        // 按主题分组：一个主题一次请求，服务端会按主题逐条广播。
+        var byTopic: [String: [String]] = [:]
+        for item in items {
+            guard let topic = item.ntfyTopic, !topic.isEmpty else { continue }
+            guard let target = item.ntfyTargetID else { continue }
+            byTopic[topic, default: []].append(target)
+        }
+        guard !byTopic.isEmpty else { return }
+
+        for (topic, ids) in byTopic {
+            let outcome = await feeds.markNtfyRead(
+                base: base,
+                topic: topic,
+                ids: ids,
+                token: settings.ntfyToken
+            )
+            switch outcome {
+            case .accepted:
+                appendLog("已读状态已同步到 ntfy：\(topic)（\(ids.count) 条）")
+            case .notFound:
+                appendLog("ntfy 上找不到 \(topic) 的这批消息，无需标记")
+            case .rejected(let status):
+                // 服务端拒绝写入：缺令牌或没有该主题的写权限，再试也没用。
+                ntfyRejectedToken = settings.ntfyToken
+                appendLog("ntfy 拒绝标记已读（HTTP \(status)）：需要访问令牌或该主题的写权限")
+            case .failed:
+                appendLog("ntfy 标记已读失败：\(topic)")
+            }
+        }
     }
 
     func delete(_ item: NotificationItem) {
