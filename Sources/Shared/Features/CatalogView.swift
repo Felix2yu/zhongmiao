@@ -19,8 +19,24 @@ struct CatalogView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                ForEach(ServiceCatalog.grouped, id: \.category) { group in
-                    let services = filtered(group.services)
+                if allHidden && !isSearching {
+                    ContentUnavailableView {
+                        Label("所有应用都已隐藏", systemImage: "eye.slash")
+                    } description: {
+                        Text("到「设置 → 服务 → 逐服务配置」里取消隐藏，或在搜索框里直接搜应用名。")
+                    }
+                    .padding(.top, 32)
+                } else if searchHasNoMatch {
+                    ContentUnavailableView {
+                        Label("没有匹配的应用", systemImage: "magnifyingglass")
+                    } description: {
+                        Text("换个关键词试试，隐藏的应用也能搜到。")
+                    }
+                    .padding(.top, 32)
+                }
+
+                ForEach(groups, id: \.category) { group in
+                    let services = filtered(visible(group.services))
                     if !services.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
                             Label(group.category.title, systemImage: group.category.symbol)
@@ -73,14 +89,42 @@ struct CatalogView: View {
         }
     }
 
+    /// 分组顺序来自注册表；组内置顶的排最前，同优先级保持注册表顺序。
+    private var groups: [(category: ServiceDefinition.Category, services: [ServiceDefinition])] {
+        ServiceCatalog.grouped { model.settings.preference(for: $0).isPinned ? 0 : 1 }
+    }
+
+    private var isSearching: Bool {
+        !searchText.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    /// 全部隐藏时首页会只剩 footer，看起来像坏了，所以单独给一个空态。
+    private var allHidden: Bool {
+        !ServiceCatalog.all.contains { !model.settings.preference(for: $0).isHidden }
+    }
+
+    private var searchHasNoMatch: Bool {
+        guard isSearching else { return false }
+        let trimmed = searchText.trimmingCharacters(in: .whitespaces)
+        return ServiceCatalog.all.allSatisfy { !matches($0, trimmed) }
+    }
+
+    /// 隐藏只作用于浏览态。搜索是明确意图，隐藏的服务照样能被搜到，
+    /// 否则用户会以为服务丢了（卡片上会标「已隐藏」）。
+    private func visible(_ services: [ServiceDefinition]) -> [ServiceDefinition] {
+        isSearching ? services : services.filter { !model.settings.preference(for: $0).isHidden }
+    }
+
+    private func matches(_ service: ServiceDefinition, _ query: String) -> Bool {
+        service.name.localizedStandardContains(query)
+            || service.summary.localizedStandardContains(query)
+            || service.id.localizedStandardContains(query)
+    }
+
     private func filtered(_ services: [ServiceDefinition]) -> [ServiceDefinition] {
         let trimmed = searchText.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return services }
-        return services.filter {
-            $0.name.localizedStandardContains(trimmed)
-                || $0.summary.localizedStandardContains(trimmed)
-                || $0.id.localizedStandardContains(trimmed)
-        }
+        return services.filter { matches($0, trimmed) }
     }
 
     /// 卡片角标：ntfy 卡片要把独立订阅的主题也算进来。
@@ -94,13 +138,16 @@ struct CatalogView: View {
 
     private func card(for service: ServiceDefinition) -> some View {
         let resolved = model.url(for: service)
+        let preference = model.settings.preference(for: service)
         return NavigationLink(value: AppModel.Route(serviceID: service.id)) {
             ServiceCard(
                 service: service,
                 unread: unreadCount(for: service),
                 isConfigured: resolved != nil,
                 isOfflineReady: service.kind.isOfflineCapable,
-                showsCapabilityTag: model.settings.showServiceCapabilityTags
+                showsCapabilityTag: model.settings.showServiceCapabilityTags,
+                isHidden: preference.isHidden,
+                isPinned: preference.isPinned
             )
         }
         .buttonStyle(.plain)
@@ -126,6 +173,26 @@ struct CatalogView: View {
                 model.toast = "正在检测 \(service.name)"
             } label: {
                 Label("检测连通性", systemImage: "waveform.path.ecg")
+            }
+
+            Divider()
+
+            Button {
+                let willPin = !preference.isPinned
+                model.setPinned(willPin, for: service.id)
+                model.toast = willPin ? "已置顶 \(service.name)" : "已取消置顶 \(service.name)"
+            } label: {
+                Label(
+                    preference.isPinned ? "取消置顶" : "置顶",
+                    systemImage: preference.isPinned ? "pin.slash" : "pin"
+                )
+            }
+
+            Button {
+                model.setHidden(true, for: service.id)
+                model.toast = "已隐藏 \(service.name)，可在「设置 → 服务」恢复"
+            } label: {
+                Label("在首页隐藏", systemImage: "eye.slash")
             }
 
             Divider()
@@ -159,6 +226,10 @@ struct ServiceCard: View {
     let isOfflineReady: Bool
     /// 是否显示离线能力标签（设置里的开关）。
     var showsCapabilityTag = true
+    /// 该服务已被设为「在首页隐藏」。只有搜索时卡片才会出现在首页，这里标出来。
+    var isHidden = false
+    /// 该服务已置顶。位置变化之外再给一个视觉锚点，否则跨会话就认不出哪些被置顶了。
+    var isPinned = false
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -167,6 +238,12 @@ struct ServiceCard: View {
             HStack(alignment: .top) {
                 ServiceGlyph(service: service, size: 40)
                 Spacer(minLength: 0)
+                if isPinned {
+                    Image(systemName: "pin.fill")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                        .accessibilityLabel("已置顶")
+                }
                 if unread > 0 {
                     Text("\(unread)")
                         .font(.caption2.weight(.bold))
@@ -191,6 +268,9 @@ struct ServiceCard: View {
             }
 
             HStack(spacing: 4) {
+                if isHidden {
+                    CapsuleTag(text: "已隐藏", systemImage: "eye.slash")
+                }
                 if showsCapabilityTag && isOfflineReady {
                     CapsuleTag(
                         text: "离线可用",

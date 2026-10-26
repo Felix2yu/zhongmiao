@@ -42,7 +42,7 @@ struct ServiceEditorView: View {
             }
 
             Section {
-                Toggle("参与后台同步", isOn: boolBinding(\.notificationsEnabled))
+                Toggle("参与通知同步", isOn: boolBinding(\.notificationsEnabled))
 
                 TextField("通知流路径", text: stringBinding(\.feedPath))
                     .zmPlainTextInput()
@@ -53,6 +53,15 @@ struct ServiceEditorView: View {
                 Text("通知")
             } footer: {
                 Text("通知流路径指向实现 GET <路径>?since=ISO8601&limit=50 的接口。ntfy 主题则直接从自托管 ntfy 拉取，无需改应用代码。两者可只配一个。")
+            }
+
+            Section {
+                Toggle("置顶", isOn: boolBinding(\.isPinned))
+                Toggle("在首页隐藏", isOn: boolBinding(\.isHidden))
+            } header: {
+                Text("首页显示")
+            } footer: {
+                Text("置顶只改变卡片在所属分类里的顺序。隐藏只是把卡片从首页撤下，通知同步与地址解析都不受影响；隐藏后仍能在「设置 → 服务 → 逐服务配置」里找到并恢复。")
             }
 
             Section {

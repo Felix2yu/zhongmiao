@@ -83,10 +83,14 @@ public struct ServiceDefinition: Codable, Identifiable, Hashable, Sendable {
     /// 已知的绝对地址（如已被独立域名接管的应用），优先级最高。
     public var absoluteURL: String?
     /// 该应用暴露通知流时使用的路径，例如 `/api/notifications`。
+    ///
+    /// **留空表示不启用该通道**。只在该应用真的实现了
+    /// `GET <路径>?since=<ISO8601>&limit=<n>` 时才填：填一个不存在的路径会让每轮同步
+    /// 多出 3 次 404（`withRetry` 重试），并挡住推送中继的兜底拉取。
     public var notificationFeedPath: String?
     /// 若该应用把事件投递到 ntfy 主题，这里填主题名。
     public var ntfyTopic: String?
-    /// 是否默认纳入后台通知同步。
+    /// 是否默认纳入通知同步（前台与后台都受同一开关约束）。
     public var notificationsEnabledByDefault: Bool
 
     public init(

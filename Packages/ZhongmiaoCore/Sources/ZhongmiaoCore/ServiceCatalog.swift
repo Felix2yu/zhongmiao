@@ -23,8 +23,9 @@ public enum ServiceCatalog {
             category: .productivity,
             kind: .pwa,
             defaultPort: 8787,
-            container: "shenshi",
-            notificationFeedPath: "/api/notifications"
+            container: "shenshi"
+            // 慎始尚未实现 `GET /api/notifications`，这里不预填路径：
+            // 填了会让每轮同步多出 3 次 404，并挡住中继兜底（见 AppModel.buildTargets）。
         ),
         ServiceDefinition(
             id: "mujian",
@@ -174,9 +175,32 @@ public enum ServiceCatalog {
     ]
 
     /// 按分类分组，保持注册表顺序。
+    /// 按类别分组的服务列表，组内保持注册表顺序。
     public static var grouped: [(category: ServiceDefinition.Category, services: [ServiceDefinition])] {
-        ServiceDefinition.Category.allCases.compactMap { category in
-            let matches = all.filter { $0.category == category }
+        grouped(prioritizing: { _ in 0 })
+    }
+
+    /// 按类别分组，组内按 `priority` 升序排列（值小的在前）。
+    ///
+    /// `priority` 相同时**必须**保持注册表顺序：Swift 的 `sorted` 不保证稳定，
+    /// 只按优先级排会把人工维护的顺序打乱，所以显式用注册表下标做第二排序键。
+    /// 首页的「置顶」靠它把置顶服务提到所属分类最前。
+    public static func grouped(
+        prioritizing priority: (ServiceDefinition) -> Int
+    ) -> [(category: ServiceDefinition.Category, services: [ServiceDefinition])] {
+        let registryIndex = Dictionary(
+            all.enumerated().map { ($0.element.id, $0.offset) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        return ServiceDefinition.Category.allCases.compactMap { category in
+            let matches = all
+                .filter { $0.category == category }
+                .sorted {
+                    let lhs = priority($0)
+                    let rhs = priority($1)
+                    if lhs != rhs { return lhs < rhs }
+                    return (registryIndex[$0.id] ?? 0) < (registryIndex[$1.id] ?? 0)
+                }
             return matches.isEmpty ? nil : (category, matches)
         }
     }

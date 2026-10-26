@@ -124,7 +124,7 @@ struct SettingsView: View {
             } header: {
                 Text("服务")
             } footer: {
-                Text("关掉后，应用卡片不再显示「离线可用」这类能力标签，只保留「未配置」等真正需要处理的提示。")
+                Text("关掉后，应用卡片不再显示「离线可用」这类能力标签，只保留「未配置」等真正需要处理的提示。被设为「在首页隐藏」的应用不会出现在首页，但仍留在上面的逐服务配置里（带划掉的眼睛标记），点进去即可恢复。")
             }
 
             Section {
@@ -212,7 +212,20 @@ struct ServiceSettingsListView: View {
                                         .lineLimit(1)
                                 }
                                 Spacer(minLength: 4)
-                                if model.settings.preference(for: service).notificationsEnabled {
+                                let preference = model.settings.preference(for: service)
+                                if preference.isPinned {
+                                    Image(systemName: "pin.fill")
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
+                                        .accessibilityLabel("已置顶")
+                                }
+                                if preference.isHidden {
+                                    Image(systemName: "eye.slash")
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
+                                        .accessibilityLabel("首页已隐藏")
+                                }
+                                if preference.notificationsEnabled {
                                     Image(systemName: "bell.fill")
                                         .font(.caption2)
                                         .foregroundStyle(.tertiary)

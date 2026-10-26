@@ -461,6 +461,16 @@ final class AppModel {
         updateSettings { $0.servicePreferences[serviceID] = nil }
     }
 
+    /// 置顶：只影响首页分组内的顺序，不动通知与地址。
+    func setPinned(_ pinned: Bool, for serviceID: String) {
+        updateSettings { $0.update(serviceID) { $0.isPinned = pinned } }
+    }
+
+    /// 隐藏：只影响首页卡片是否出现，服务仍在「逐服务配置」里，通知同步照旧。
+    func setHidden(_ hidden: Bool, for serviceID: String) {
+        updateSettings { $0.update(serviceID) { $0.isHidden = hidden } }
+    }
+
     // MARK: - 体检
 
     func probeAll() {

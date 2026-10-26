@@ -76,7 +76,7 @@ ServiceDefinition(
     path: "/",                      // 落地路径
     defaultPort: 8080,              // Dockerfile 的 EXPOSE
     container: "myservice",         // compose 的 container_name
-    notificationFeedPath: "/api/notifications"
+    notificationFeedPath: "/api/notifications"   // 仅在该应用真的实现了这个接口时才填
 )
 ```
 
@@ -90,6 +90,8 @@ ServiceDefinition(
 
 - 自定义地址（完整 URL，粘贴时自动清洗协议/端口/路径）
 - 通知开关、通知流路径、ntfy 主题
+- 置顶与首页隐藏：置顶只改分组内顺序（同优先级保持注册表顺序），隐藏只从首页撤下卡片，
+  不影响通知同步与地址解析；隐藏项在「设置 → 服务 → 逐服务配置」里始终可见，是恢复入口
 - 恢复默认：删除该服务的覆盖项
 
 体检页展示「实际解析出的地址 + 可达性」，与 Nginx 不一致时一眼能看出。

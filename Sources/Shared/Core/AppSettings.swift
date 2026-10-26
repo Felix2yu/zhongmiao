@@ -5,26 +5,50 @@ import ZhongmiaoCore
 struct ServicePreference: Codable, Hashable, Sendable {
     /// 绝对地址覆盖，优先级最高。
     var urlOverride: String?
-    /// 是否参与后台通知同步。
+    /// 是否纳入通知同步的目标集合。前台同步、重连补拉、后台刷新都受它约束，
+    /// 关掉即完全不向该服务发起通知请求。
     var notificationsEnabled: Bool
     /// ntfy 主题（为空表示该服务不通过 ntfy 投递）。
     var ntfyTopic: String?
     /// 通用通知流路径，例如 `/api/notifications`。
     var feedPath: String?
+    /// 是否在首页置顶（排在所属分类最前）。
     var isPinned: Bool
+    /// 是否在首页隐藏。只影响首页卡片，不改动通知同步与地址解析；
+    /// 「设置 → 服务 → 逐服务配置」里始终可见，那是恢复入口。
+    var isHidden: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case urlOverride, notificationsEnabled, ntfyTopic, feedPath, isPinned, isHidden
+    }
 
     init(
         urlOverride: String? = nil,
         notificationsEnabled: Bool = false,
         ntfyTopic: String? = nil,
         feedPath: String? = nil,
-        isPinned: Bool = false
+        isPinned: Bool = false,
+        isHidden: Bool = false
     ) {
         self.urlOverride = urlOverride
         self.notificationsEnabled = notificationsEnabled
         self.ntfyTopic = ntfyTopic
         self.feedPath = feedPath
         self.isPinned = isPinned
+        self.isHidden = isHidden
+    }
+
+    /// 逐字段解码。`isHidden` 是后加的字段，旧偏好里没有这个键；合成的 Codable
+    /// 遇到缺失的非可选 Bool 会抛 `keyNotFound`，进而让整个
+    /// `[String: ServicePreference]` 解码失败、全部设置被重置，所以必须兜底。
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        urlOverride = try container.decodeIfPresent(String.self, forKey: .urlOverride)
+        notificationsEnabled = try container.decodeIfPresent(Bool.self, forKey: .notificationsEnabled) ?? false
+        ntfyTopic = try container.decodeIfPresent(String.self, forKey: .ntfyTopic)
+        feedPath = try container.decodeIfPresent(String.self, forKey: .feedPath)
+        isPinned = try container.decodeIfPresent(Bool.self, forKey: .isPinned) ?? false
+        isHidden = try container.decodeIfPresent(Bool.self, forKey: .isHidden) ?? false
     }
 
     /// 以注册表默认值初始化。

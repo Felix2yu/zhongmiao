@@ -2,7 +2,6 @@
   {
     "category" : "productivity",
     "container" : "shenshi",
-    "feedPath" : "/api/notifications",
     "id" : "shenshi",
     "kind" : "pwa",
     "name" : "慎始",

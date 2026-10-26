@@ -20,6 +20,34 @@ struct ServiceCatalogTests {
         #expect(Set(grouped.map(\.id)) == Set(ServiceCatalog.all.map(\.id)))
     }
 
+    @Test("置顶排序稳定，不打扰注册表顺序")
+    func prioritySortIsStable() throws {
+        // 挑一个成员数足够多的分类，断言「其余服务相对顺序不变」才有意义。
+        let baselineGroup = try #require(ServiceCatalog.grouped.first { $0.services.count >= 3 })
+        let category = baselineGroup.category
+        let baseline = baselineGroup.services
+        let target = try #require(baseline.last)
+
+        let ranked = ServiceCatalog.grouped { $0.id == target.id ? 0 : 1 }
+        let after = try #require(ranked.first { $0.category == category }).services
+
+        // 置顶的排到最前。
+        #expect(after.first?.id == target.id)
+        // 其余服务保持原有相对顺序 —— Swift 的 sorted 不稳定，这条就是防它把顺序打乱。
+        #expect(Array(after.dropFirst()).map(\.id) == Array(baseline.dropLast()).map(\.id))
+        // 分类顺序与总数不受影响。
+        #expect(ranked.map(\.category) == ServiceCatalog.grouped.map(\.category))
+        #expect(ranked.flatMap(\.services).count == ServiceCatalog.all.count)
+    }
+
+    @Test("优先级全相同时与默认分组完全一致")
+    func zeroPriorityMatchesDefault() {
+        let ranked = ServiceCatalog.grouped { _ in 0 }
+        let baseline = ServiceCatalog.grouped
+        #expect(ranked.map(\.category) == baseline.map(\.category))
+        #expect(ranked.flatMap { $0.services.map(\.id) } == baseline.flatMap { $0.services.map(\.id) })
+    }
+
     @Test("子域名模式生成 HTTPS 地址")
     func subdomainResolution() throws {
         let service = try #require(ServiceCatalog.service(id: "shenshi"))
