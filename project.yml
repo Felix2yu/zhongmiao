@@ -41,6 +41,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: im.yufei.zhongmiao
         PRODUCT_NAME: 众妙
+        ASSETCATALOG_COMPILER_APPICON_NAME: Zhongmiao
         TARGETED_DEVICE_FAMILY: "1,2"
         SUPPORTS_MACCATALYST: NO
         INFOPLIST_KEY_CFBundleDisplayName: 众妙
@@ -94,6 +95,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: im.yufei.zhongmiao.mac
         PRODUCT_NAME: 众妙
+        ASSETCATALOG_COMPILER_APPICON_NAME: Zhongmiao
         COMBINE_HIDPI_IMAGES: YES
         INFOPLIST_KEY_CFBundleDisplayName: 众妙
     info:
