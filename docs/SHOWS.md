@@ -219,7 +219,8 @@ cd Packages/ZhongmiaoCore && swift test
 | M5 自动化 | ✅ | `StartShowIntent: LiveActivityIntent` + 设置页「演出提醒」分区 + 本文档 |
 
 已验证：`swift test` **101 个测试**全通过；iOS（含 Widget Extension）与 macOS 两个 scheme 均 `BUILD SUCCEEDED`
-（ActivityKit 分支在 iOS SDK 下确实参与编译，在 macOS 下被 `os(iOS)` 挡掉）。
+（ActivityKit 分支在 iOS SDK 下确实参与编译，在 macOS 下被 `os(iOS)` 挡掉）；
+**灵动岛已在 iPhone Air 真机上实测通过**，见第 13 节。
 
 ## 12. 实际落地与计划的偏差
 
@@ -235,3 +236,94 @@ cd Packages/ZhongmiaoCore && swift test
 5. **岛的「散场后 30 分钟收起」无法自动完成**：无 APNs 就没有散场时刻的后台执行机会。
    现在的策略是——岛存在期间，任何一次触发（打开 App / 自动化 / 盯场）都会检查
    `now >= islandDismissAt` 并立即收起；若一直没有触发点，最迟开岛后 8 小时由系统移除。
+6. **`Activity.request` 要求 App 处于 active**，否则抛 `Target is not foreground`（原文一字不改）。
+   冷启动时演出刷新跑在 `didFinishLaunching` 阶段，那一刻必失败。
+   处理：不拦截、照发，失败也不提示；由 `scenePhase` 变为 active 时自动重试一次。
+7. **SwiftUI App 下 `applicationDidBecomeActive` 不会被派发**（走的是 Scene 生命周期）。
+   前台重试因此挂在 `ZhongmiaoApp` 的 `scenePhase == .active` 上，不是 AppDelegate。
+8. **岛上的场次失效后原本只收起、不顶替**，要等下一次触发才换。
+   已改：收起后继续走选场逻辑，让下一场当场顶上。
+9. **拥有该活动的 App 在前台时，系统不显示它的岛**。真机实测：App 打开着时顶部一个
+   彩色像素都没有；切到 Safari 后立刻出现紫色图标 + 倒计时。这对本功能是好事——
+   用户已经在 App 里了，本来也不需要岛。
+
+## 13. 真机验证（iPhone Air / iPhone18,4 / iOS 27.1）
+
+计划里写「本机无模拟器 runtime」是错的，已修正。以下是**真机实测**结果，不是推断。
+
+### 环境
+
+| 项 | 值 |
+| :-- | :-- |
+| 设备 | 「子翼的iPhone」iPhone Air，`00008150-001E15E42E87801C` |
+| 账号 | 免费个人开发者（Personal Team），**无 APNs** |
+| Team ID | `2C6YRKGU49`（团队名「飞 郁」） |
+| 签名 | Xcode 托管描述文件，7 天有效 |
+
+### 构建与安装
+
+```bash
+xcodebuild -project Zhongmiao.xcodeproj -scheme Zhongmiao \
+  -destination 'platform=iOS,id=00008150-001E15E42E87801C' \
+  DEVELOPMENT_TEAM=2C6YRKGU49 -allowProvisioningUpdates build
+
+xcrun devicectl device install app --device <id> <众妙.app>
+xcrun devicectl device process launch --device <id> im.yufei.zhongmiao
+```
+
+> **坑 1**：钥匙串证书上的 `W5FU2X8TUB` 不是 Team ID。真正在用的是描述文件里的
+> `2C6YRKGU49`，填错会报 `No Account for Team`。
+> **坑 2**：Xcode 27 的托管描述文件在
+> `~/Library/Developer/Xcode/UserData/Provisioning Profiles/`，
+> 旧路径 `~/Library/MobileDevice/Provisioning Profiles/` 是空的，别据此判断「没签过」。
+> **坑 3**：Widget Extension 的描述文件无需手工建，`-allowProvisioningUpdates` 会自动生成
+> `iOS Team Provisioning Profile: im.yufei.zhongmiao.widget`。
+
+### 怎么在没有 UI 自动化的情况下验证岛
+
+`devicectl` 没有点击能力，但有两件够用的工具：
+
+```bash
+# 1. 往 App 容器写文件（注入演出缓存）
+xcrun devicectl device copy to --device <id> \
+  --domain-type appDataContainer --domain-identifier im.yufei.zhongmiao \
+  --source /tmp/shows.json --destination "Library/Application Support/Zhongmiao/shows.json"
+
+# 2. 真机截图
+xcrun devicectl device capture screenshot --device <id> --destination /tmp/x.png
+
+# 3. 把 App 切到后台（开岛后必须做，否则岛不显示）
+xcrun devicectl device process openURL --device <id> "https://www.apple.com"
+```
+
+`shows.json` 的日期是 `JSONEncoder` 默认的 `secondsSince2001`（Unix 秒 − 978307200）。
+
+判定「岛在不在」不要靠肉眼看截图——深色背景里药丸是黑的。数像素更可靠：
+
+```bash
+python3 -c "from PIL import Image; ..."   # 统计顶部紫色 (202,67,234) 像素数
+```
+
+无岛时 0 个，有岛时约 800–1200 个。
+
+### 实测结论
+
+| 验证项 | 结果 |
+| :-- | :-- |
+| 免费账号 + `pushType: nil` 能否开岛 | ✅ 能，不需要 APNs |
+| 岛内倒计时是否自走 | ✅ 连续两次截图分别为 `3:22` → `2:36` |
+| 日历数据源（EventKit） | ✅ 真机拉到幕间 CalDAV 同步的真实场次（秦腔《再续红梅缘》、昆剧《长生殿》《牡丹亭》等） |
+| 缓存合并去重 | ✅ 注入场次与日历场次共存，未重复提醒 |
+| 冷启动开岛 | ✅ 初次失败（`Target is not foreground`），`scenePhase` 重试后成功 |
+| 缓存清空后自动收起 | ✅ 顶部紫色像素从 ~1200 降到 0 |
+| 锁屏卡片、展开态 | ⬜ 未验证（需长按岛 / 锁屏，宿主无法操作） |
+| 快捷指令自动化触发 | ⬜ 未验证（需在你的手机上建两个自动化） |
+
+### 仍未验证、需要你做的
+
+1. **建两个快捷指令自动化**：10:00 与 15:00，动作「开启演出盯场」，**关掉「运行前询问」**。
+   这是主力触发路径，宿主无法代建。注意后台跑 `LiveActivityIntent` 时 App 不在前台，
+   `Activity.request` 是否放行，只能实测——若被拒，现象是自动化执行了但岛不出现。
+2. **锁屏卡片与展开态**：长按岛展开，确认剧名/场馆/座位/底栏布局。
+3. **7 天证书过期**：免费账号最大的隐患。过期后 App 打不开、自动化静默失效。
+   每周至少用 Xcode 重新跑一次。

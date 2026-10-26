@@ -65,25 +65,21 @@ final class ShowIslandController {
 
         if let running {
             let handle = ActivityHandle(value: running)
-            let runningName = handle.value.attributes.name
+            let runningShow = shows.first(where: { $0.id == handle.value.attributes.showID })
+            let expired = runningShow.map { now >= $0.islandDismissAt } ?? true
 
-            // 岛已经在跑：要么更新阶段，要么到点收起。绝不开第二个。
-            guard let show = shows.first(where: { $0.id == handle.value.attributes.showID }) else {
+            // 岛上那场已经撤了（缓存里没了，或者早过了散场时间）：先收起来，
+            // 但不在这里返回——继续往下走，让下一场顶上，否则要等下一次触发才换。
+            if expired {
                 await handle.value.end(nil, dismissalPolicy: .immediate)
-                return .ended(runningName)
+            } else if let show = runningShow {
+                let phase = show.phase(now: now)
+                if handle.value.content.state.phase != phase {
+                    await handle.value.update(ShowIslandController.content(for: show, now: now))
+                    return .updated(show.name)
+                }
+                return .unchanged(show.name)
             }
-
-            if now >= show.islandDismissAt {
-                await handle.value.end(nil, dismissalPolicy: .immediate)
-                return .ended(show.name)
-            }
-
-            let phase = show.phase(now: now)
-            if handle.value.content.state.phase != phase {
-                await handle.value.update(ShowIslandController.content(for: show, now: now))
-                return .updated(show.name)
-            }
-            return .unchanged(show.name)
         }
 
         let library = ShowLibrary(items: shows)

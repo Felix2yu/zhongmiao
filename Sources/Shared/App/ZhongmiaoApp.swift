@@ -23,6 +23,12 @@ struct ZhongmiaoApp: App {
             switch phase {
             case .active:
                 model.refreshAuthorization()
+                // 开岛要求 App 处于 active。冷启动时演出刷新是在 `didFinishLaunching`
+                // 阶段发起的，那一刻场景还没激活，`Activity.request` 会被系统拒
+                //（报错就是一句 `Target is not foreground`）。这里补一次对齐。
+                Task { @MainActor in
+                    await model.alignShowIsland()
+                }
                 // 回到前台：把离线期间积压的补发掉，并拉一次最新。
                 model.syncNow(reason: "回到前台")
             case .background:

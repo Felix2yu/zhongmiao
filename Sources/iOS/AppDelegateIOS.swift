@@ -21,6 +21,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         AppModel.shared.refreshAuthorization()
     }
 
+    // 注意：SwiftUI App 走 Scene 生命周期，`applicationDidBecomeActive` 不会被派发。
+    // 前台对齐放在 `ZhongmiaoApp` 的 `scenePhase` 里。
+
     func application(
         _ application: UIApplication,
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data

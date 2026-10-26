@@ -159,6 +159,14 @@ final class AppModel {
     }
 
     /// 打开 App 也是开岛触发点之一：命中窗口就直接亮起来，不必等自动化。
+    ///
+    /// 硬约束：`Activity.request` 要求 App 处于 **active**，否则直接抛
+    /// `Target is not foreground`。冷启动时刷新演出是在 `didFinishLaunching` 阶段发起的，
+    /// 那一刻还没 active，这一下必然失败。
+    ///
+    /// 处理方式：**不拦截**，照样发请求，失败也不打扰用户——`scenePhase` 变为 active 时
+    /// 会自动重试一次。之所以不能用「前台才发」来挡，是因为快捷指令跑 `LiveActivityIntent`
+    /// 时 App 同样不在前台，挡掉就把主力触发路径一起废了。
     func alignShowIsland() async {
         #if os(iOS)
         guard settings.showsEnabled else {
@@ -169,7 +177,7 @@ final class AppModel {
             shows: shows,
             lead: settings.showsIslandLead
         )
-        if !outcome.isSuccess {
+        if !outcome.isSuccess, UIApplication.shared.applicationState == .active {
             appendLog("灵动岛：\(outcome.logText)")
         }
         #endif
