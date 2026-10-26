@@ -325,5 +325,44 @@ python3 -c "from PIL import Image; ..."   # 统计顶部紫色 (202,67,234) 像�
    这是主力触发路径，宿主无法代建。注意后台跑 `LiveActivityIntent` 时 App 不在前台，
    `Activity.request` 是否放行，只能实测——若被拒，现象是自动化执行了但岛不出现。
 2. **锁屏卡片与展开态**：长按岛展开，确认剧名/场馆/座位/底栏布局。
-3. **7 天证书过期**：免费账号最大的隐患。过期后 App 打不开、自动化静默失效。
-   每周至少用 Xcode 重新跑一次。
+
+## 14. 签名续期：免费账号的 7 天
+
+Apple 官方对免费个人团队（Personal Team）的规定很明确：描述文件自签发起 **7 天**过期，
+过期后**必须重建 App 并重新安装到设备**——不存在"后台自动续期"这回事。
+本功能依赖 App 能被调用（快捷指令跑 `LiveActivityIntent` 时要拉得起 App 进程），
+所以这件事不是可选项：过期 = 整套提醒静默失效。
+
+### 实测得到的三条事实
+
+1. **构建不会提前续期**。profile 还剩 6 天时跑 `xcodebuild`，到期时间纹丝不动——
+   Xcode 只在描述文件**缺失或已过期**时才重新签发。所以"每天编译一次"没有任何作用。
+2. **删掉 profile 后，命令行能自动重建**。`-allowProvisioningUpdates` 会重新签发主 App
+   与 Widget 两份（实测两份在同一秒内生成，之前手工构建留下的两份是不同步的）。
+   这条是整个自动化方案的基础。
+3. **增量构建会把人绊倒**。删了 profile 却只清 `Build/Products`，第二次构建直接失败：
+   `Build input file cannot be found: '....mobileprovision'`——构建系统把上一轮用过的
+   profile 路径记成了 input file。必须清掉**整个** `DerivedData/Zhongmiao-*`。
+
+### 做法
+
+`tools/renew-signing.sh`：读描述文件剩余天数，不足 2 天就走「删 profile → 全量构建 →
+`devicectl install`」；还早就直接退出，不打扰。设备不可见（不在身边 / 没开机）也直接跳过，
+等下一次——7 天窗口里只要命中一次就够。
+
+```bash
+tools/renew-signing.sh           # 日常：不足 2 天才动作
+tools/renew-signing.sh --force   # 排障或首次验证：无论如何重建一次
+```
+
+已挂 launchd（每天 09:00）：`~/Library/LaunchAgents/im.yufei.zhongmiao.renew-signing.plist`
+日志在 `~/Library/Logs/zhongmiao-renew.log`。手动触发：`launchctl start im.yufei.zhongmiao.renew-signing`；
+停用：`launchctl unload ~/Library/LaunchAgents/im.yufei.zhongmiao.renew-signing.plist`。
+
+### 仍然绕不过的
+
+- **设备必须被 Mac 看到**（USB，或同一 Wi-Fi 下在 Xcode 里开过"通过网络连接"）。
+  出差一周且不带电脑，回来时 App 已经打不开了，插上电脑跑一次 `--force` 即可恢复。
+- 覆盖安装**不清数据**，`shows.json` 与设置都保留。
+- 免费账号同时最多 10 个 App ID、3 台设备、每台 3 个 App——家里设备多的话要留意。
+- 想彻底摆脱，只能付费（¥688/年）：证书与描述文件变一年有效期。
