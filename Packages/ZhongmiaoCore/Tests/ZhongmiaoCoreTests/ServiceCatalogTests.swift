@@ -48,6 +48,15 @@ struct ServiceCatalogTests {
         #expect(ranked.flatMap { $0.services.map(\.id) } == baseline.flatMap { $0.services.map(\.id) })
     }
 
+    @Test("分组里不出现没有服务的空分类")
+    func noEmptyCategory() {
+        // `grouped` 用 compactMap 丢弃空分类，首页再靠 `!services.isEmpty` 兜一层。
+        // 若有人为了「保留分类顺序」把它改成 map，首页会在某分类服务被全部隐藏后
+        // 冒出一个只有标题的空区块 —— 正常使用下很难发现，所以这里钉住。
+        #expect(!ServiceCatalog.grouped.contains { $0.services.isEmpty })
+        #expect(!ServiceCatalog.grouped { _ in 0 }.contains { $0.services.isEmpty })
+    }
+
     @Test("子域名模式生成 HTTPS 地址")
     func subdomainResolution() throws {
         let service = try #require(ServiceCatalog.service(id: "shenshi"))
