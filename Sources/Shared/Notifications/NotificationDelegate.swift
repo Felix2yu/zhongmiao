@@ -10,11 +10,15 @@ extension Notification.Name {
 final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate, @unchecked Sendable {
 
     typealias OpenHandler = @Sendable (String, String?) -> Void
+    /// 演出通知上的按钮：`(actionIdentifier, showID)`。
+    typealias ShowActionHandler = @Sendable (String, String) -> Void
 
     private let onOpen: OpenHandler
+    private let onShowAction: ShowActionHandler
 
-    init(onOpen: @escaping OpenHandler) {
+    init(onOpen: @escaping OpenHandler, onShowAction: @escaping ShowActionHandler) {
         self.onOpen = onOpen
+        self.onShowAction = onShowAction
         super.init()
     }
 
@@ -31,6 +35,14 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate, @u
         didReceive response: UNNotificationResponse
     ) async {
         let info = response.notification.request.content.userInfo
+
+        // 演出通知走另一条路：它不属于任何服务，没有 serviceID，
+        // 「盯场」按钮要的是开岛而不是打开页面。
+        if let showID = info["showID"] as? String, !showID.isEmpty {
+            onShowAction(response.actionIdentifier, showID)
+            return
+        }
+
         guard let serviceID = info["serviceID"] as? String, !serviceID.isEmpty else { return }
         onOpen(serviceID, info["url"] as? String)
     }

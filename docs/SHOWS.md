@@ -1,0 +1,237 @@
+# 演出提醒实施计划
+
+把「观演」从单纯的 WebView 页面升级成原生能力：演出前本地通知保底 + 开演前 8 小时内自动上灵动岛，
+全程不依赖 APNs（免费个人开发者账号可用）。
+
+## 0. 目标与验收
+
+| 编号 | 验收项 | 判定方式 |
+| :-- | :-- | :-- |
+| A1 | 每场演出在**开演前 8 小时内**自动出现灵动岛 | 真机：两个自动化时刻 + 打开 App 各观察一次 |
+| A2 | 开演前 **4 小时**（可配）本地通知必达，App 被杀也到点 | 真机：排一条近场演出 |
+| A3 | 岛内显示剧名 / 场馆 / 座位；倒计时自行走动，并在「距开演 / 演出中 / 已结束」三态间切换 | 真机 |
+| A4 | 散场 +30 分钟自动收起，不残留 | 真机 |
+| A5 | 数据源可切换：幕间 API 为主、系统日历（幕间 CalDAV）兜底 | 设置页开关 |
+| A6 | iOS / macOS 两个 scheme 都能编译，ZhongmiaoCore 单测不依赖模拟器 | `xcodebuild` + `swift test` |
+
+## 1. 已核实的事实（计划的地基）
+
+**幕间侧**（`/Users/yufei/Git/mujian`）
+
+- Go + chi 后端，自带 CalDAV 服务（`internal/caldav`），ICS 事件 `UID = <recordID>@mujian`。
+  你现在依赖的「日历通知」就是它同步出来的 VTODO + `VALARM`（`internal/ics/ics.go`，支持「演出前 N 小时」或「当天固定时刻」）。
+- `GET /api/records?start=YYYY-MM-DD&end=YYYY-MM-DD` 支持日期区间过滤（另有 `q`/`city`/`drama`/`status` 等）。
+- **本次新增** `GET /api/records/upcoming?days=14`（`internal/handlers/upcoming.go`）：
+  只回未来场次（含「今天已开演的要剔除」）、按开演时间升序、上限 50 条、`days` 上限 90，
+  并剔除 `已取消` / `未赴约`；字段精简为
+  `id / name / date(unix 秒) / duration(分钟) / address / city / seat / categoryName / artist_names`。
+  详情页深链是 `/records/{id}`。
+- 鉴权（`cmd/mujian/main.go` 的 `authMiddleware`）：`Authorization: Bearer <token>`、`X-Auth-Token`、
+  `?token=` 三选一；token 来自 `MJ_AUTH_TOKEN`，**为空时整站免鉴权**。401 返回 `{"error":"unauthorized"}`。
+- `Record` 关键字段：`id`、`name`、`date`（unix 秒）、`duration`（分钟，0 表示未知）、
+  `address`、`city`、`coordinate`、`seat`、`cover`、`categoryName`、`artist_names`、`active_status`。
+
+**众妙侧**
+
+- `project.yml` 是工程唯一来源（`.xcodeproj` 已 gitignore）；deployment target iOS 27 / macOS 27。
+- 目前**没有** Widget Extension；`UIBackgroundModes = [fetch, remote-notification]`；
+  BGTask 已有 `im.yufei.zhongmiao.refresh`（`Sources/iOS/BackgroundSync.swift`）。
+- 服务地址解析统一走 `ServiceURLResolver`（`Packages/ZhongmiaoCore/.../Addressing.swift`）——
+  幕间的域名 / 内网 IP 两种形态都能解析，不需要新增寻址逻辑。
+- 通知投递统一走 `NotificationScheduler`（`Sources/Shared/Notifications/`）。
+
+**ActivityKit 的硬约束**（决定设计，不是选型）
+
+| 约束 | 值 |
+| :-- | :-- |
+| 活跃时长 | 最多 8 小时，到期系统**立刻**从岛移除；锁屏最多再留 4 小时 |
+| 启动条件 | 一般需 App 在前台；后台启动的官方路径只有 `LiveActivityIntent`（iOS 17+），系统拉起 App 进程但不打开界面 |
+| 数据 | 静态 + 动态合计 ≤ 4KB；岛内不能联网、不能定位 |
+| 关闭 APNs | `Activity.request(attributes:content:pushType: nil)` |
+| 硬件 | iPhone 14 Pro 及以后（16e 为刘海屏）；其余机型只有锁屏卡片 |
+
+## 2. 架构
+
+```
+      ┌── 幕间 API  GET /api/records?start&end   (Bearer MJ_AUTH_TOKEN)
+      │                     │
+      │              ShowClient（解码 + 401 只记日志）
+      │                     ▼
+      │              ┌─────────────┐
+      └── EventKit ─▶│  ShowStore  │  JSON 落盘，API 优先、日历补缺
+        （CalDAV）    └─────────────┘
+                            │
+        ┌───────────────────┼────────────────────┐
+        ▼                   ▼                    ▼
+  ShowScheduler      ActivityManager        LiveActivityIntent
+  （本地通知 T-Xh）   （request/end）        （快捷指令 00/06/12/18）
+        │                   │                    │
+        └── 「盯场」按钮 ────┴──── Widget Extension ──▶ 灵动岛
+```
+
+**为什么是"阶梯撞窗口"而不是"到点触发"**：iOS 无推送就没有准时唤醒 App 的机制，
+但灵动岛窗口本身有 8 小时宽，只要触发点间隔 ≤8 小时，就必然有一个点落在 `[开演-8h, 开演]` 内。
+间隔 6 小时（00/06/12/18）时，实际开岛时刻落在 T-8h ~ T-2h，且至少能活到开演后 2 小时
+——而我们会主动在开演 +30 分钟结束它。
+
+## 3. 文件清单
+
+### 新增
+
+| 路径 | 内容 |
+| :-- | :-- |
+| `Packages/ZhongmiaoCore/Sources/ZhongmiaoCore/Show.swift` | `Show`（id / recordID / name / venue / seat / startsAt / endsAt / url）、`MujianRecordDTO`（字段全可选）、`ShowAttributes: ActivityAttributes`（`#if canImport(ActivityKit)`）、纯函数 `Show.islandWindow(leadHours:)` |
+| `Sources/Shared/Shows/ShowStore.swift` | 缓存：Application Support 下 JSON 文件；合并去重（按 `recordID`，无 recordID 时按「标题 + 开演时间」指纹） |
+| `Sources/Shared/Shows/ShowClient.swift` | 用 `ServiceURLResolver` 拼幕间地址 + `Authorization: Bearer`；401/403 记日志不重试（沿用通知契约约定） |
+| `Sources/Shared/Shows/CalendarShowSource.swift` | EventKit 读未来 N 天（`#if os(iOS)`，只读取不写入，避免与幕间 CalDAV 双向冲突） |
+| `Sources/Shared/Shows/ShowScheduler.swift` | 本地通知（`UNCalendarNotificationTrigger`）+ category「盯场」 |
+| `Sources/Shared/Shows/ActivityManager.swift` | `request` / `update` / `end`；`pushType: nil`；`ActivityAuthorizationInfo.areActivitiesEnabled` 前置检查；同 `showID` 幂等 |
+| `Sources/iOS/StartShowIntent.swift` | `LiveActivityIntent`，标题「开启演出盯场」，参数 `showID` 可选（不传则自动选最近一场） |
+| `Sources/Widget/ShowActivityWidget.swift` | `ActivityConfiguration` + DynamicIsland（compactLeading / compactTrailing / minimal / expanded 三个 region）+ 锁屏视图；倒计时用 `Text(timerInterval:countsDown:)` |
+| `Config/Info-Widget.plist` | Widget target 的 Info.plist（`NSExtension` + `NSSupportsLiveActivities`） |
+| `Packages/ZhongmiaoCore/Tests/ZhongmiaoCoreTests/ShowTests.swift` | DTO 缺失字段解码、窗口判定边界、合并去重 |
+
+### 修改
+
+| 路径 | 改动 |
+| :-- | :-- |
+| `project.yml` | 新增 `ZhongmiaoWidget` target（`type: app-extension`，`PRODUCT_BUNDLE_IDENTIFIER: im.yufei.zhongmiao.widget`，`NSExtensionPointIdentifier: com.apple.widgetkit-extension`，`SKIP_INSTALL: YES`，依赖 `ZhongmiaoCore` 包）；主 target `dependencies` 加 `target: ZhongmiaoWidget` 并 `embed: true`；主 target info 加 `NSSupportsLiveActivities: true` |
+| `Config/Info-iOS.plist` | `NSSupportsLiveActivities`、`NSCalendarsUsageDescription` |
+| `Sources/Shared/Core/AppSettings.swift` | 新增 `showsEnabled` / `showsLeadHours` / `showsSource` / `showsLookaheadDays` / `mujianToken`；**全部可选 + `decodeIfPresent` 兜底**，`init(from:)` 逐字段解码 |
+| `Sources/Shared/Features/SettingsView.swift` | 「演出提醒」分区：开关、提前量（上限 8 小时）、数据源、幕间令牌、立即刷新、测试开岛 |
+| `Sources/iOS/AppDelegateIOS.swift` | `didFinishLaunching` 后注册「盯场」category；冷启动刷新一次演出缓存 |
+| `Sources/iOS/BackgroundSync.swift` | 后台刷新时顺带拉一次演出并尝试开岛（best effort，不保证） |
+| `docs/NOTIFICATIONS.md` | 补「演出提醒」一节，说明它不进通知账本、不去重键体系 |
+
+## 4. 关键设计决策
+
+1. **`pushType: nil`** —— 显式关掉 ActivityKit 推送，免费账号无需 APNs、无需 p8。
+2. **窗口判定做成纯函数放 ZhongmiaoCore**（Foundation-only），可在 `swift test` 里覆盖边界；
+   ZhongmiaoCore 不能引入 UIKit/WebKit，ActivityKit 一律 `#if canImport(ActivityKit)` 包裹，
+   macOS target 与单测不受影响（现有约定）。
+3. **4KB 预算**：只传 name / venue / seat / startsAt / endsAt；封面图不传（岛内也不显示）。
+4. **倒计时自走**：`Text(timerInterval:countsDown:)`，开岛后 8 小时内零后台消耗、零网络。
+5. **结束策略**：`end(content, dismissalPolicy: .after(startsAt.addingTimeInterval(30*60)))`。
+   `duration` 为 0（未知）时，endsAt 兜底为 startsAt + 3 小时，UI 不显示散场时间。
+6. **缓存结构演进**：`Show` 新增字段一律可选，旧 JSON 解码失败不得清空整份缓存（现有约定）。
+7. **幂等**：`Activity<ShowAttributes>.activities` 里按 `attributes.showID` 查找，已存在则跳过；
+   换场时先结束旧的再开新的。
+8. **令牌为空也能用**：幕间免鉴权部署时直接放行；401 不弹窗、只在诊断日志里记一条。
+9. **日历通道只读**，避免与幕间 CalDAV 产生回写冲突。
+
+## 5. 触发矩阵
+
+| 触发 | 时刻 | 是否自动 | 可靠性 | 说明 |
+| :-- | :-- | :-- | :-- | :-- |
+| 快捷指令自动化（10:00 / 15:00） | 固定 | 是 | 中高 | 覆盖 **10:00–23:00** 开演的场次 |
+| 打开 App | 随机 | 是 | 高 | 命中窗口即开，覆盖自动化盲区 |
+| 通知「盯场」按钮（`.foreground`） | T-4h | 一次点击 | 高 | 100% 成功，作为兜底 |
+| `BGAppRefreshTask` | 不定 | 是 | 低 | 顺带尝试，不做承诺 |
+
+**自动化覆盖率**：10:00 命中 `开演 ∈ [10:00, 18:00]`，15:00 命中 `开演 ∈ [15:00, 23:00]`，
+合计覆盖 **10:00–23:00**。早于 10:00 的场次（含午夜场）不在自动化覆盖内，
+只能靠打开 App 或点「盯场」——若要覆盖，追加一个 22:00 的自动化即可补上 22:00–06:00。
+
+**对着实际观演时段算一遍**（这是把提前量定成 4 小时的直接原因）：
+
+| 场次 | 开演 | 通知 T-4h | 岛窗口（8h 前起） | 命中它的自动化 | 岛在开演时已存活 |
+| :-- | :-- | :-- | :-- | :-- | :-- |
+| 午场 | 13:00 | 09:00 | 05:00–13:00 | **10:00** | 3 小时 |
+| 午场 | 14:00 | 10:00 | 06:00–14:00 | **10:00** | 4 小时 |
+| 夜场 | 19:00 | 15:00 | 11:00–19:00 | **15:00** | 4 小时 |
+| 夜场 | 19:30 | 15:30 | 11:30–19:30 | **15:00** | 4.5 小时 |
+
+结论：**午场与夜场全部被 10:00 / 15:00 两次自动化覆盖，无需加第三个触发点**，
+且开岛到开演只过了 3–4.5 小时，远在 8 小时上限内。
+注意 10:00 那条自动化会同时看到当天的午场与夜场，必须选**最近一场未开演**的（即午场），
+否则会给 9 小时后的夜场白开一个岛、然后在午场开演时还挂着错的剧名。
+
+## 6. 你需要做的两件事
+
+**一、填幕间令牌**：众妙「设置 → 演出提醒 → 幕间访问令牌」填 `MJ_AUTH_TOKEN` 的值
+（与现有「ntfy 访问令牌」同类的设置项；幕间免鉴权时留空即可）。
+
+**二、建 2 个快捷指令自动化**（一次性）：
+快捷指令 → 自动化 → `+` → 创建个人自动化 → **特定时间** → 选 `10:00`，重复「每天」→ 下一步 →
+添加操作 → App → 众妙 → **开启演出盯场** → 下一步 → **关闭「运行前询问」** → 完成。
+同样再建一条 `15:00`（若常有上午场或午夜场，追加 `22:00`）。
+
+## 7. 里程碑
+
+| 阶段 | 内容 | 完成判据 |
+| :-- | :-- | :-- |
+| M1 数据层 | `Show` / `MujianRecordDTO` / `ShowClient` / `ShowStore` + 单测 | `swift test` 通过 |
+| M2 日历通道 | EventKit 读取 + 双源合并 | 两个 scheme 编译通过 |
+| M3 保底通知 | `ShowScheduler` 本地通知 + 「盯场」按钮 + 设置项 | 真机到点收到通知 |
+| M4 灵动岛 | Widget target + 岛 UI + `ActivityManager` | 真机前台开岛成功 |
+| M5 自动化 | `LiveActivityIntent` + 设置 UI + 文档 | 快捷指令能后台开岛 |
+
+每阶段验证：
+
+```bash
+xcodegen generate
+xcodebuild -project Zhongmiao.xcodeproj -scheme Zhongmiao \
+  -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project Zhongmiao.xcodeproj -scheme ZhongmiaoMac \
+  -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO build
+cd Packages/ZhongmiaoCore && swift test
+```
+
+## 8. 验证清单
+
+**我这边可验证**：两个 scheme 编译；`swift test`（DTO 残缺字段不崩、窗口边界 T-8h±1s、合并去重、
+旧 `AppSettings` 解码不被重置）；逻辑走查。
+**需你在真机验证**（本机无模拟器 runtime，我不会声称跑过界面）：岛是否出现、倒计时是否走动、
+8 小时后是否自动消失、通知是否到点、4 个自动化时刻是否都触发、**锁屏状态下自动化是否执行**、
+7 天证书过期后自动化是否静默失效。
+
+## 9. 风险与缓解
+
+| 风险 | 概率 | 影响 | 缓解 |
+| :-- | :-- | :-- | :-- |
+| 免费账号签不了 Widget Extension | 中 | 功能整体不可用 | 本方案不依赖 App Groups（数据经 ActivityKit 传递）；仍失败则需付费账号 |
+| 快捷指令自动化在锁屏/低电量不执行 | 中 | 岛没自动出现 | 加密到每 4 小时（6 个点）；回退到「盯场」按钮 |
+| 7 天描述文件过期 | 高 | 自动化静默失效 | 每周重签一次；设置页可加签名剩余天数提示（可选） |
+| `.timeSensitive` 在免费档被降级 | 中 | 提醒不穿透专注模式 | 实测；不行就退回 `.active` |
+| EventKit 授权被拒 | 低 | 少一条数据源 | 自动回退纯 API 通道 |
+| 8 小时硬上限 | 必然 | 无法提前一天常驻 | 已写入设计：`showsLeadHours` 上限 8，UI 明示 |
+
+## 10. 已定决策
+
+1. **通知提前量 4 小时**（`ShowReminder.defaultReminderLead`）。灵动岛提前量另算，
+   默认贴着系统上限 8 小时（`defaultIslandLead`）——两者是两件事，不要合并成一个设置：
+   岛的触发时刻由快捷指令或"打开 App"决定，窗口开得越大越容易被命中。
+2. **自动化 10:00 / 15:00 两次**，外加「演出前打开本应用也触发」。
+   覆盖率见第 5 节（10:00–23:00 开演的场次）。
+3. **岛上三态**：距开演 / 演出中 / 已结束，由 `ShowActivityAttributes.ContentState.phase` 驱动。
+   切到「演出中」需要一个更新动作，触发点是：打开 App、快捷指令自动化、以及开演时刻的本地通知。
+4. **幕间新增 `/api/records/upcoming?days=14`**（已实现并补测试）。
+
+## 11. 进度
+
+| 阶段 | 状态 | 产出 |
+| :-- | :-- | :-- |
+| 幕间 `upcoming` 接口 | ✅ | `internal/handlers/upcoming.go` + 2 个测试（`go test ./internal/handlers -run Upcoming`） |
+| M1 数据层 | ✅ | `ZhongmiaoCore/Show.swift`（`Show` / `ShowPhase` / `ShowReminder` / `MujianUpcomingResponse` / `ShowActivityAttributes`）+ `ShowTests.swift` 11 个测试 |
+| M2 双数据源 + 缓存 | ✅ | `ZhongmiaoCore/ShowLibrary.swift`（合并去重 / 三态查询 / 过期清理）+ `ShowStore` / `ShowClient` / `CalendarShowSource`，`ShowLibraryTests.swift` 12 个测试 |
+| M3 保底通知 | ✅ | `ShowScheduler`（`UNCalendarNotificationTrigger` + 「盯场」按钮）+ `AppSettings` 演出字段 + `AppModel.refreshShows()` |
+| M4 灵动岛 | ✅ | `ZhongmiaoWidget` target + `ShowActivityWidget`（锁屏 + 岛四套展示）+ `ShowIslandController`（`pushType: nil`） |
+| M5 自动化 | ✅ | `StartShowIntent: LiveActivityIntent` + 设置页「演出提醒」分区 + 本文档 |
+
+已验证：`swift test` **101 个测试**全通过；iOS（含 Widget Extension）与 macOS 两个 scheme 均 `BUILD SUCCEEDED`
+（ActivityKit 分支在 iOS SDK 下确实参与编译，在 macOS 下被 `os(iOS)` 挡掉）。
+
+## 12. 实际落地与计划的偏差
+
+1. **`ActivityAuthorizationInfo.areActivitiesEnabled` 在 iOS 26 起是实例属性**
+   （`ActivityAuthorizationInfo()`），不再是类型属性——编译错误暴露的，已改。
+2. **`Activity` 不是 `Sendable`**，Swift 6 严格并发拒绝把它送过 `await` 边界；
+   与 `EKEventStore` 同样处理，装箱成 `@unchecked Sendable` 的 `ActivityHandle`。
+3. **`EKEvent` 不暴露 ICS 的 UID**，所以日历来源无法与幕间记录 id 精确对齐。
+   缓解：`Show.isSameShow(as:)` 增加「同名 + 开演时间相差 ≤15 分钟」的模糊判据。
+   代价是极端情况下可能把两场同名演出并成一场（实际观演中极罕见）。
+4. **`IntentAuthenticationPolicy.notRequired` 不存在**，去掉了对 `authenticationPolicy` 的覆盖，
+   用系统默认。若实测发现锁屏状态下自动化被拦，再回来单独处理。
+5. **岛的「散场后 30 分钟收起」无法自动完成**：无 APNs 就没有散场时刻的后台执行机会。
+   现在的策略是——岛存在期间，任何一次触发（打开 App / 自动化 / 盯场）都会检查
+   `now >= islandDismissAt` 并立即收起；若一直没有触发点，最迟开岛后 8 小时由系统移除。

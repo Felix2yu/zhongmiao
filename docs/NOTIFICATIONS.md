@@ -213,3 +213,27 @@ App 侧在「设置 → 推送中继」填 `https://zm-push.<你的域名>` 和�
 3. 打开飞行模式，杀进程重进，收件箱条目应显示「待补发」标签；关闭飞行模式 → 自动补发。
 4. 配好 ntfy 主题，往该主题发一条消息 → 前台同步后入库；`open`/`keepalive` 不应产生条目。
 5. 配好中继后 `POST /v1/test` → 设备收到推送；再 `GET /v1/events?since=...` 应能取回同一条。
+
+## 演出提醒（本地通知 + 灵动岛）
+
+与上面三条通道并列的第四条，但性质不同：**它不是"把服务端事件搬进收件箱"，
+而是按时间主动排程**。完整设计与决策见 `SHOWS.md`，这里只记接入点。
+
+| 环节 | 位置 |
+| :-- | :-- |
+| 数据源 | 幕间 `GET /api/records/upcoming`（Bearer `MJ_AUTH_TOKEN`）+ 系统日历（幕间 CalDAV） |
+| 缓存 | `ShowStore` → `~/Library/Application Support/Zhongmiao/shows.json` |
+| 排程 | `ShowScheduler` → `UNCalendarNotificationTrigger`，标识符 `show.<showID>` |
+| 灵动岛 | `ShowIslandController`，`pushType: nil`（完全不碰 APNs） |
+| 后台触发 | `StartShowIntent: LiveActivityIntent`，供快捷指令自动化调用 |
+
+**去重启用另一套命名空间**：演出通知的标识符带 `show.` 前缀，与事件键
+（`<serviceID>#<eventID>`）不会撞车，`ShowScheduler.sync` 也是靠这个前缀来回收失效排程的。
+
+**通知上的按钮**：`UNNotificationCategory` 为 `im.yufei.zhongmiao.show`，
+两个 action 都带 `.foreground`——不带的话系统在后台直接吞掉，开岛代码根本不会执行。
+`NotificationDelegate.didReceive` 先判断 `userInfo["showID"]`，命中就走演出分支，
+否则按老规矩当作服务通知处理。
+
+**与灵动岛的分工**：通知是保底（App 被杀也到点），岛是增强（最多常驻 8 小时、何时开由触发点决定）。
+两者可以取不同的提前量，默认通知 4 小时、岛 8 小时。

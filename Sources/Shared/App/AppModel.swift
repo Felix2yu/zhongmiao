@@ -40,6 +40,8 @@ final class AppModel {
     private(set) var log: [String] = []
     /// 独立订阅的 ntfy 主题（不属于任何应用），按需轮询进收件箱。
     private(set) var ntfyTopics: [String]
+    /// 缓存中尚未散场的演出，供设置页展示与提醒排程使用。
+    private(set) var shows: [Show] = []
     var toast: String?
     /// 通知点击 / 系统深链请求打开的服务页。
     var pendingRoute: Route?
@@ -49,6 +51,8 @@ final class AppModel {
     private let scheduler: NotificationScheduler
     private let engine: NotificationEngine
     private let feeds = FeedClients()
+    private let showStore = ShowStore.standard()
+    private let showScheduler = ShowScheduler()
     private var notificationDelegate: NotificationDelegate?
     private var observers: [NSObjectProtocol] = []
     private var hasActivated = false
@@ -86,12 +90,20 @@ final class AppModel {
         hasActivated = true
 
         scheduler.registerCategories()
+        showScheduler.registerCategories()
 
-        let delegate = NotificationDelegate { serviceID, urlString in
-            Task { @MainActor in
-                AppModel.shared.handleNotificationOpen(serviceID: serviceID, urlString: urlString)
+        let delegate = NotificationDelegate(
+            onOpen: { serviceID, urlString in
+                Task { @MainActor in
+                    AppModel.shared.handleNotificationOpen(serviceID: serviceID, urlString: urlString)
+                }
+            },
+            onShowAction: { action, showID in
+                Task { @MainActor in
+                    AppModel.shared.handleShowAction(action, showID: showID)
+                }
             }
-        }
+        )
         notificationDelegate = delegate
         UNUserNotificationCenter.current().delegate = delegate
 
@@ -121,6 +133,78 @@ final class AppModel {
         }
         scheduleBackgroundRefresh()
         syncNow(reason: "启动")
+        await refreshShows()
+    }
+
+    // MARK: - 演出
+
+    /// 刷新演出缓存并重排提醒。
+    ///
+    /// 两个数据源各自失败都只记日志、不清缓存：一次网络抖动不该让已经排好的提醒消失。
+    func refreshShows() async {
+        guard settings.showsEnabled else {
+            await showScheduler.cancelAll()
+            shows = []
+            return
+        }
+
+        let outcome = await showStore.refresh(settings: settings)
+        shows = outcome.library.upcoming()
+
+        if let error = outcome.apiError { appendLog("幕间演出拉取失败：\(error)") }
+        if let error = outcome.calendarError { appendLog("日历读取失败：\(error)") }
+
+        await syncShowReminders()
+        await alignShowIsland()
+    }
+
+    /// 打开 App 也是开岛触发点之一：命中窗口就直接亮起来，不必等自动化。
+    func alignShowIsland() async {
+        #if os(iOS)
+        guard settings.showsEnabled else {
+            await ShowIslandController.shared.endAll()
+            return
+        }
+        let outcome = await ShowIslandController.shared.align(
+            shows: shows,
+            lead: settings.showsIslandLead
+        )
+        if !outcome.isSuccess {
+            appendLog("灵动岛：\(outcome.logText)")
+        }
+        #endif
+    }
+
+    /// 把当前缓存重排成系统通知。提前量或开关变动后单独调用即可，无需重新联网。
+    func syncShowReminders() async {
+        guard settings.showsEnabled else { return }
+        await showScheduler.sync(shows, lead: settings.showsReminderLead)
+    }
+
+    /// 演出通知上的按钮。
+    func handleShowAction(_ action: String, showID: String) {
+        guard let show = shows.first(where: { $0.id == showID }) else { return }
+        switch action {
+        case ShowScheduler.watchActionIdentifier:
+            // 通知把 App 拉到前台，此刻开岛必成——这是唯一 100% 可靠的开岛路径。
+            #if os(iOS)
+            Task { @MainActor in
+                let outcome = await ShowIslandController.shared.align(
+                    shows: AppModel.shared.shows,
+                    lead: AppModel.shared.settings.showsIslandLead
+                )
+                AppModel.shared.appendLog("盯场：\(outcome.logText)")
+            }
+            #endif
+            openShow(show)
+        default:
+            openShow(show)
+        }
+    }
+
+    private func openShow(_ show: Show) {
+        guard let service = ServiceCatalog.service(id: "mujian") else { return }
+        pendingRoute = Route(serviceID: service.id, url: show.url ?? url(for: service))
     }
 
     // MARK: - 地址解析

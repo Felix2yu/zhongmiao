@@ -49,6 +49,8 @@ enum BackgroundSync {
         let handle = TaskHandle(task)
         let work = Task { @MainActor in
             await AppModel.shared.performBackgroundSync()
+            // 顺带刷一次演出：后台时间片不保证落在开演前，能刷到一次就多一次排程机会。
+            await AppModel.shared.refreshShows()
         }
 
         let cancel: @Sendable () -> Void = { [work] in

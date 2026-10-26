@@ -35,6 +35,8 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSCalendarsUsageDescription</key>
+	<string>众妙需要读取日历中的演出时间，用于开演前的提醒与灵动岛。</string>
 	<key>NSCameraUsageDescription</key>
 	<string>上传照片或扫描内容时需要使用相机。</string>
 	<key>NSLocalNetworkUsageDescription</key>
@@ -43,6 +45,8 @@
 	<string>录制语音时需要使用麦克风。</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>从相册选择图片上传到你的自建服务。</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>

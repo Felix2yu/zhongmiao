@@ -84,6 +84,28 @@ struct AppSettings: Codable, Hashable, Sendable {
     /// 默认开启；关掉后卡片只保留「未配置」这类真正需要处理的告警。
     var showServiceCapabilityTags: Bool
 
+    // MARK: 演出提醒
+
+    /// 演出提醒总开关。关掉后不再拉幕间演出、不再排通知、不再开岛。
+    var showsEnabled: Bool
+    /// 本地通知提前量（小时）。默认 4 小时：午场 13–14 点开演落在上午提醒，
+    /// 夜场 19–19:30 开演落在下班前提醒。
+    var showsReminderLeadHours: Int
+    /// 灵动岛提前量（小时）。默认贴着系统上限 8 小时——岛的触发时刻由快捷指令
+    /// 或「打开 App」决定，窗口开得越大越容易被命中。
+    var showsIslandLeadHours: Int
+    /// 幕间访问令牌（服务端 `MJ_AUTH_TOKEN`）。免鉴权时留空。
+    var mujianToken: String
+    /// 是否从幕间 API 拉取演出。
+    var showsUseMujianAPI: Bool
+    /// 是否从系统日历读取演出（幕间 CalDAV 同步过去的事件）。
+    var showsUseCalendar: Bool
+    /// 日历兜底的额外关键词，逗号分隔。
+    ///
+    /// 默认只认幕间同步过去的事件（UID 带 `@mujian`）。要连「在日历里自己建的演出」
+    /// 也一起收，就在这里填关键词（匹配事件标题或日历名称），否则把工作会议也当成演出。
+    var showsCalendarKeywords: String
+
     init(
         addressing: AddressSettings = .default,
         servicePreferences: [String: ServicePreference] = [:],
@@ -94,7 +116,14 @@ struct AppSettings: Codable, Hashable, Sendable {
         backgroundRefreshEnabled: Bool = true,
         lookbackHours: Int = 24,
         inboxCapacity: Int = 500,
-        showServiceCapabilityTags: Bool = true
+        showServiceCapabilityTags: Bool = true,
+        showsEnabled: Bool = true,
+        showsReminderLeadHours: Int = 4,
+        showsIslandLeadHours: Int = 8,
+        mujianToken: String = "",
+        showsUseMujianAPI: Bool = true,
+        showsUseCalendar: Bool = true,
+        showsCalendarKeywords: String = ""
     ) {
         self.addressing = addressing
         self.servicePreferences = servicePreferences
@@ -106,12 +135,21 @@ struct AppSettings: Codable, Hashable, Sendable {
         self.lookbackHours = lookbackHours
         self.inboxCapacity = inboxCapacity
         self.showServiceCapabilityTags = showServiceCapabilityTags
+        self.showsEnabled = showsEnabled
+        self.showsReminderLeadHours = showsReminderLeadHours
+        self.showsIslandLeadHours = showsIslandLeadHours
+        self.mujianToken = mujianToken
+        self.showsUseMujianAPI = showsUseMujianAPI
+        self.showsUseCalendar = showsUseCalendar
+        self.showsCalendarKeywords = showsCalendarKeywords
     }
 
     private enum CodingKeys: String, CodingKey {
         case addressing, servicePreferences, relayURL, relaySecret
         case ntfyBaseURLOverride, ntfyToken, backgroundRefreshEnabled, lookbackHours, inboxCapacity
         case showServiceCapabilityTags
+        case showsEnabled, showsReminderLeadHours, showsIslandLeadHours
+        case mujianToken, showsUseMujianAPI, showsUseCalendar, showsCalendarKeywords
     }
 
     /// 逐字段解码，新增字段缺失时回落到默认值 —— 旧版本存下的设置不能因为
@@ -128,6 +166,32 @@ struct AppSettings: Codable, Hashable, Sendable {
         lookbackHours = try container.decodeIfPresent(Int.self, forKey: .lookbackHours) ?? 24
         inboxCapacity = try container.decodeIfPresent(Int.self, forKey: .inboxCapacity) ?? 500
         showServiceCapabilityTags = try container.decodeIfPresent(Bool.self, forKey: .showServiceCapabilityTags) ?? true
+        showsEnabled = try container.decodeIfPresent(Bool.self, forKey: .showsEnabled) ?? true
+        showsReminderLeadHours = try container.decodeIfPresent(Int.self, forKey: .showsReminderLeadHours) ?? 4
+        showsIslandLeadHours = try container.decodeIfPresent(Int.self, forKey: .showsIslandLeadHours) ?? 8
+        mujianToken = try container.decodeIfPresent(String.self, forKey: .mujianToken) ?? ""
+        showsUseMujianAPI = try container.decodeIfPresent(Bool.self, forKey: .showsUseMujianAPI) ?? true
+        showsUseCalendar = try container.decodeIfPresent(Bool.self, forKey: .showsUseCalendar) ?? true
+        showsCalendarKeywords = try container.decodeIfPresent(String.self, forKey: .showsCalendarKeywords) ?? ""
+    }
+
+    // MARK: 演出提醒派生值
+
+    var showsReminderLead: TimeInterval {
+        TimeInterval(max(0, showsReminderLeadHours)) * 3600
+    }
+
+    /// 岛的提前量按系统上限夹住：设置里允许填更大值，但超出 8 小时的部分没有意义。
+    var showsIslandLead: TimeInterval {
+        ShowReminder.clampedIslandLead(TimeInterval(max(0, showsIslandLeadHours)) * 3600)
+    }
+
+    /// 日历兜底的关键词，去掉空串与首尾空格。
+    var showsCalendarKeywordList: [String] {
+        showsCalendarKeywords
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
     }
 
     func preference(for service: ServiceDefinition) -> ServicePreference {

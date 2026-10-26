@@ -37,6 +37,7 @@ targets:
       - path: Resources/iOS
     dependencies:
       - package: ZhongmiaoCore
+      - target: ZhongmiaoWidget
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: im.yufei.zhongmiao
@@ -71,6 +72,7 @@ targets:
           NSAllowsArbitraryLoadsInWebContent: true
           NSAllowsLocalNetworking: true
         NSLocalNetworkUsageDescription: 众妙需要访问局域网中的自建服务（如慎始、货殖等）。
+        NSCalendarsUsageDescription: 众妙需要读取日历中的演出时间，用于开演前的提醒与灵动岛。
         NSCameraUsageDescription: 上传照片或扫描内容时需要使用相机。
         NSPhotoLibraryUsageDescription: 从相册选择图片上传到你的自建服务。
         NSMicrophoneUsageDescription: 录制语音时需要使用麦克风。
@@ -79,6 +81,33 @@ targets:
           - remote-notification
         BGTaskSchedulerPermittedIdentifiers:
           - im.yufei.zhongmiao.refresh
+        # 允许本 App 开启实时活动（灵动岛 / 锁屏卡片）。这是 Info.plist 键，不是付费能力。
+        NSSupportsLiveActivities: true
+
+  ZhongmiaoWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "27.0"
+    sources:
+      - path: Sources/Widget
+    dependencies:
+      - package: ZhongmiaoCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: im.yufei.zhongmiao.widget
+        PRODUCT_NAME: 众妙小组件
+        # 扩展不单独归档，由主 App 内嵌。
+        SKIP_INSTALL: YES
+    info:
+      path: Config/Info-Widget.plist
+      properties:
+        CFBundleDisplayName: 众妙小组件
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDevelopmentRegion: zh_CN
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        NSSupportsLiveActivities: true
 
   ZhongmiaoMac:
     type: application

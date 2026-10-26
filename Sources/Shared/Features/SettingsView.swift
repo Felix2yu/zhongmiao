@@ -79,6 +79,59 @@ struct SettingsView: View {
             }
 
             Section {
+                Toggle("启用演出提醒", isOn: $model.settings.showsEnabled)
+
+                if model.settings.showsEnabled {
+                    Stepper(value: $model.settings.showsReminderLeadHours, in: 1...12) {
+                        LabeledContent("提前提醒", value: "\(model.settings.showsReminderLeadHours) 小时")
+                    }
+
+                    #if os(iOS)
+                    Stepper(value: $model.settings.showsIslandLeadHours, in: 1...8) {
+                        LabeledContent("灵动岛提前量", value: "\(model.settings.showsIslandLeadHours) 小时")
+                    }
+                    #endif
+
+                    TextField("幕间访问令牌", text: $model.settings.mujianToken)
+                        .zmPlainTextInput()
+
+                    Toggle("从幕间拉取", isOn: $model.settings.showsUseMujianAPI)
+
+                    #if os(iOS)
+                    Toggle("读取系统日历", isOn: $model.settings.showsUseCalendar)
+
+                    TextField("日历关键词（逗号分隔）", text: $model.settings.showsCalendarKeywords)
+                        .zmPlainTextInput()
+                    #endif
+
+                    LabeledContent("已缓存") {
+                        Text("\(model.shows.count) 场")
+                            .foregroundStyle(model.shows.isEmpty ? .secondary : .primary)
+                    }
+
+                    if let next = model.shows.first(where: { $0.startsAt > .now }) {
+                        LabeledContent("下一场") {
+                            Text("《\(next.name)》\(Self.clock(next.startsAt))")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Button {
+                        Task { await model.refreshShows() }
+                    } label: {
+                        Label("立即刷新", systemImage: "arrow.clockwise")
+                    }
+                }
+            } header: {
+                Text("演出提醒")
+            } footer: {
+                Text(SettingsView.showFooter)
+            }
+            .onChange(of: showSettingsFingerprint) {
+                Task { await model.refreshShows() }
+            }
+
+            Section {
                 TextField("推送中继地址", text: $model.settings.relayURL)
                     .zmPlainTextInput()
                     #if os(iOS)
@@ -186,6 +239,41 @@ struct SettingsView: View {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1.0"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
         return "\(version) (\(build))"
+    }
+
+    // MARK: 演出提醒
+
+    /// 演出相关的设置指纹。任一字段变动都重刷一次，省去给七个字段各挂一个 onChange。
+    private var showSettingsFingerprint: String {
+        let settings = model.settings
+        return [
+            settings.showsEnabled.description,
+            String(settings.showsReminderLeadHours),
+            String(settings.showsIslandLeadHours),
+            settings.mujianToken,
+            settings.showsUseMujianAPI.description,
+            settings.showsUseCalendar.description,
+            settings.showsCalendarKeywords
+        ].joined(separator: "|")
+    }
+
+    private static func clock(_ date: Date) -> String {
+        let components = Calendar.current.dateComponents([.month, .day, .hour, .minute], from: date)
+        let month = components.month ?? 0
+        let day = components.day ?? 0
+        let hour = components.hour ?? 0
+        let minute = components.minute ?? 0
+        return minute == 0
+            ? "\(month)月\(day)日 \(hour)点"
+            : "\(month)月\(day)日 \(hour)点\(minute)分"
+    }
+
+    static var showFooter: String {
+        #if os(iOS)
+        "演出时间取自幕间，也会读系统日历里「幕间」同步过去的事件。提醒走本地通知，App 被杀也照常到点。灵动岛最多常驻 8 小时，而 iOS 不允许 App 在精确时刻自己启动，所以要建两个快捷指令自动化（每天 10:00、15:00）跑「开启演出盯场」；演出前打开众妙也会自动开岛。"
+        #else
+        "演出时间取自幕间，也会读系统日历里「幕间」同步过去的事件。提醒走本地通知，即便 App 已退出也照常到点。"
+        #endif
     }
 }
 
