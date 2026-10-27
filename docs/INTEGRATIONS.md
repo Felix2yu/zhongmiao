@@ -19,8 +19,8 @@
 | 货殖 | `huozhi` | P0 | 账号密码 → JWT | 资产、信用卡账单、分类、书籍、近期流水 | 支出、收入、转账、信用卡还款 | 关 |
 | 牵丝 | `qiansi` | P0 | 可选 Bearer | 联系人、纪念日、提醒、约会、统计 | 新建纪念日/约会、完成提醒 | 开（09:00） |
 | 青野集 | `qingye` | P0 | 无 | 房间、植物、养护任务、养护记录 | 完成/推迟任务、记浇水施肥 | 开（08:00） |
-| 幕间 | `mujian` | P1 | 可选 Bearer | 未来演出、看板、近期记录 | — | 沿用 `ShowScheduler` |
-| 吾身 | `diarum` | P1 | 账号密码 → JWT | 今日日记、最近日记、连续天数 | — | 开（21:00） |
+| 幕间 | `mujian` | P1 | 可选 Bearer | 未来演出、全部记录与搜索、详情、看板与分布 | 录入演出、标记已观看 | 沿用 `ShowScheduler` |
+| 吾身 | `diarum` | P1 | 账号密码 → JWT | 按日期读日记、最近日记、搜索、连续天数 | 写/改当天正文 | 开（21:00） |
 | 慎始 | `shenshi` | P1 | 可选 Bearer | 今日/逾期任务、习惯、到期提醒、统计 | 完成任务、习惯打卡 | 开（09:00） |
 | 蜂巢 | `qbhive` | P1 | 可选 Bearer | 统计、种子列表、RSS 状态 | 暂停/继续、校验、限速 | 关 |
 | ntfy | `ntfy` | P1 | 可选 Bearer | 主题、时间线、搜索 | 标记已读、删除消息 | 关 |
@@ -242,8 +242,8 @@ ZhongmiaoCore（纯 Foundation，可单测）
 
 | 应用 | 读 | 写 |
 | :-- | :-- | :-- |
-| 幕间 | `/api/records/upcoming`、`/api/dashboard` | — |
-| 吾身 | `/api/v1/diaries/recent`、`/diaries/stats?tz=` | —（写入会整段覆盖正文） |
+| 幕间 | `/api/records`（分页 + `q` 过滤）、`/records/search`、`/records/{id}`、`/dashboard` | `POST /records` 录入；`PUT /records/{id}` 改观看态 |
+| 吾身 | `/diaries/by-date/{date}`、`/diaries/recent`、`/diaries/search?q=`、`/diaries/stats?tz=` | `POST /diaries {date, content}` 写正文 |
 | 慎始 | `/api/tasks?smart=`、`/habits`、`/reminders/due`、`/stats` | `POST /api/tasks/{id}/done {completed}`（幂等，不用 `/toggle`）、习惯打卡 |
 | 蜂巢 | `/api/torrents/stats`、`/api/torrents`、`/api/rss/status` | `perform(action:hash:)`：暂停/继续/校验/限速 |
 | ntfy | `/v1/topics`、`/{topic}/json?poll=1&since=7d`、`/v1/search` | `GET /{topic}/{ids}/read`（≤50/批，非法 id 先剔除）、删除消息 |
@@ -251,6 +251,16 @@ ZhongmiaoCore（纯 Foundation，可单测）
 | 拾帧集 | `view_at` 用 epoch 秒；`/api/history/all`、`/api/viewing/monthly-stats`、`/api/daily/daily-count` | — |
 | 察新 | `/api/repos`、`/api/notifications`（limit 20）；`0001-01-01` 按「无」处理 | —（不调 `/api/settings`，会漏 GitHub Token） |
 | 流霞 | `/api/today`、`/api/cities`、`/api/rankings` | —（不无界拉 `/api/data`） |
+
+### 两个写入口的安全做法（实测踩过的坑）
+
+- **幕间的 PUT 会清空字段**。`PUT /api/records/{id}` 虽然注释写着「部分更新」，实际只对
+  `date` 生效：只发 `{"watched":true}` 会把剧目名、座位、分类、备注全部写成零值（本地实例实测复现）。
+  所以「标记已观看」走**读—改—写**：先取该记录的原始 JSON，只替换 `watched`，再整份回写，
+  未识别的字段也原样带回去，避免服务端将来加字段后被抹掉。
+- **吾身只覆盖正文**。`POST /api/v1/diaries` 是 upsert，未显式传入的 `mood` / `scenarios` / `tags`
+  保持原值（nil 切片表示「不改」）。因此原生保存只发 `date` + `content`，不会动情绪与标签；
+  保存前用 `updated` 与基线比对，发现别处改过就先弹「覆盖 / 载入服务器版本」，不静默覆盖。
 
 ## 9. 设置与重授权
 
@@ -300,8 +310,20 @@ xcrun simctl launch --console booted im.yufei.zhongmiao \
   -ZM_HUOZHI_USERNAME test -ZM_HUOZHI_PASSWORD test
 ```
 
-`ZM_PREVIEW_SERVICE` 会按内置的 `127.0.0.1:1808x` 映射直连对应服务并跳过地址配置；
-配合 `xcrun simctl io booted screenshot` 可直接截图验收。
+`ZM_PREVIEW_SERVICE` 会按内置的 `127.0.0.1:1808x` 映射直连对应服务并跳过地址配置，
+真机上要同时给 `ZM_HOST=<Mac 的局域网地址>`；配合 `xcrun simctl io booted screenshot` 可直接截图验收。
+
+调试种子只覆盖**正在预览的那一个服务**的地址（早前对所有服务生效，会把设置里改的地址一起盖掉，
+表现为「改了地址还是连老 IP」）。预览中页面顶部会标一条「调试直连 host:port」，不会悄无声息地生效。
+测试账号留在真机上时，用 `ZM_SEED_CLEAR=1` 启动一次即可清空种子写入的凭据。
+
+真机点击流程用 `ZhongmiaoUITests` 方案跑（锁屏状态下 UI 测试会以 code 74 直接退出，需先解锁）：
+
+```bash
+xcodegen generate
+xcodebuild test -project Zhongmiao.xcodeproj -scheme ZhongmiaoUITests \
+  -destination 'platform=iOS,id=<UDID>' DEVELOPMENT_TEAM=<TEAM> -allowProvisioningUpdates
+```
 
 ### 关键回归
 
