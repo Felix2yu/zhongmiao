@@ -210,20 +210,16 @@ struct DiarumScreen: View {
                 LoadFailureView(title: "这一天的日记读不出来", detail: loadError) {
                     Task { await loadEntry(selectedDate) }
                 }
-            } else if awaitingLogin && text.isEmpty {
-                HStack {
-                    ProgressView().controlSize(.small)
-                    Text("正在登录吾身…").font(.caption).foregroundStyle(.secondary)
-                }
             } else {
-                // 加载中不换掉编辑框，只加一个小转圈：换掉会丢焦点、也会让正在输入的内容闪一下。
+                // 编辑框始终在位：没登录也让你能写，写之前会提示先连接。
+                // 加载中不换掉编辑框，只加一个小转圈——换掉会丢焦点，也会让正在输入的内容闪一下。
                 TextEditor(text: $text)
                     .font(.body)
                     .frame(minHeight: 220)
                     .scrollContentBackground(.hidden)
                     .accessibilityIdentifier("diarum.editor")
                     .overlay(alignment: .topTrailing) {
-                        if isLoadingEntry {
+                        if isLoadingEntry || awaitingLogin {
                             ProgressView()
                                 .controlSize(.small)
                                 .padding(6)
@@ -472,14 +468,18 @@ struct DiarumScreen: View {
 
         var client = self.client()
         if client == nil {
-            // 冷启动时 JWT 还没换回来：先静默重登，别把「还没登录」当成「凭据失效」。
+            // 有账号密码但还没换到 JWT：静默重登，别把「还没登录」当成「凭据失效」。
+            // 完全没配过凭据时走另一条分支——页面照常给编辑框，顶部横幅提示去连接。
+            guard store.center.credential(for: "diarum") != nil else {
+                awaitingLogin = false
+                return
+            }
             awaitingLogin = true
             await store.center.reauthenticateIfPossible(serviceID: "diarum", baseURL: baseURL)
             client = self.client()
         }
         guard let client else {
-            awaitingLogin = true
-            // 保留屏幕上已有的正文，等登录完成后由 refreshWhenIntegrationReady 再加载。
+            awaitingLogin = store.center.credential(for: "diarum") != nil
             return
         }
         awaitingLogin = false
@@ -507,7 +507,13 @@ struct DiarumScreen: View {
     }
 
     private func save(force: Bool = false) async {
-        guard let client = client(), !isSaving else { return }
+        guard !isSaving else { return }
+        guard let client = client() else {
+            // 还没连上：写的内容先留着，直接把连接页弹出来，别让用户以为写丢了。
+            saveNote = "先连接吾身，正文已保留在页面上"
+            showCredential = true
+            return
+        }
         isSaving = true
         saveNote = nil
         defer { isSaving = false }
