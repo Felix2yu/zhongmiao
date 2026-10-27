@@ -16,7 +16,8 @@ packages:
 settings:
   base:
     MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "202610271445"
+    CURRENT_PROJECT_VERSION: "2"
+    ZM_BUILD_STAMP: "2026-10-27 14:56"
     SWIFT_VERSION: "6.0"
     SWIFT_STRICT_CONCURRENCY: complete
     CODE_SIGN_STYLE: Automatic
@@ -41,7 +42,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: im.yufei.zhongmiao
-        PRODUCT_NAME: 众妙
+        PRODUCT_NAME: Zhongmiao
         ASSETCATALOG_COMPILER_APPICON_NAME: Zhongmiao
         TARGETED_DEVICE_FAMILY: "1,2"
         SUPPORTS_MACCATALYST: NO
@@ -52,6 +53,7 @@ targets:
         CFBundleDisplayName: 众妙
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ZMBuildStamp: $(ZM_BUILD_STAMP)
         CFBundleDevelopmentRegion: zh_CN
         LSRequiresIPhoneOS: true
         UILaunchScreen:
@@ -95,7 +97,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: im.yufei.zhongmiao.widget
-        PRODUCT_NAME: 众妙小组件
+        PRODUCT_NAME: ZhongmiaoWidget
         # 扩展不单独归档，由主 App 内嵌。
         SKIP_INSTALL: YES
     info:
@@ -123,7 +125,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: im.yufei.zhongmiao.mac
-        PRODUCT_NAME: 众妙
+        PRODUCT_NAME: Zhongmiao
         ASSETCATALOG_COMPILER_APPICON_NAME: Zhongmiao
         COMBINE_HIDPI_IMAGES: YES
         INFOPLIST_KEY_CFBundleDisplayName: 众妙

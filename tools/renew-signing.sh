@@ -110,7 +110,10 @@ if ! xcodebuild -project Zhongmiao.xcodeproj -scheme Zhongmiao \
     exit 1
 fi
 
-APP=$(ls -d "$DERIVED"/Zhongmiao-*/Build/Products/Debug-iphoneos/众妙.app 2>/dev/null | head -1)
+# iOS 产物的目录名已改成 ASCII（Configurator 的 AFC 传输对非 ASCII 目录名有坑），
+# 旧的「众妙.app」保留兼容。
+APP=$(ls -d "$DERIVED"/Zhongmiao-*/Build/Products/Debug-iphoneos/Zhongmiao.app 2>/dev/null | head -1)
+[ -z "$APP" ] && APP=$(ls -d "$DERIVED"/Zhongmiao-*/Build/Products/Debug-iphoneos/众妙.app 2>/dev/null | head -1)
 [ -z "$APP" ] && { log "未找到构建产物"; exit 1; }
 
 # 3. 装到设备（覆盖安装，App 容器内的数据保留）

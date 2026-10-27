@@ -72,5 +72,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>ZMBuildStamp</key>
+	<string>$(ZM_BUILD_STAMP)</string>
 </dict>
 </plist>

@@ -266,7 +266,10 @@ struct SettingsView: View {
     private var appVersion: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1.0"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
-        return "\(version) (\(build))"
+        // CFBundleVersion 只能是短整数（超 32 位会溢出），真正的时间戳放自定义键，
+        // 这样「关于」里能直接对上出包时间，不用再靠猜。
+        let stamp = Bundle.main.infoDictionary?["ZMBuildStamp"] as? String ?? "—"
+        return "\(version) (\(build)) · \(stamp)"
     }
 
     private var configuredCount: Int {
