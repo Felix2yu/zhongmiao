@@ -161,4 +161,36 @@ final class IntegrationSmokeTests: XCTestCase {
         print(app.debugDescription)
         print("=== TREE END ===")
     }
+
+    /// 吾身：带着条目目标启动时，页面要直接落在那一天，而不是今天。
+    func testDiarumTargetOpensThatDay() {
+        // 取一个确定不是今天的日期：三天前
+        let target = Calendar.current.date(byAdding: .day, value: -3, to: .now) ?? .now
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd"
+        let day = formatter.string(from: target)
+
+        let app = launch("diarum", extra: [
+            "ZM_TARGET_SERVICE": "diarum",
+            "ZM_TARGET_KIND": "diary",
+            "ZM_TARGET_ID": day,
+            "ZM_DIARUM_USERNAME": "zmnative2",
+            "ZM_DIARUM_PASSWORD": "zmtest1234"
+        ])
+
+        let label = app.descendants(matching: .any)["diarum.dateLabel"].firstMatch
+        XCTAssertTrue(label.waitForExistence(timeout: 20), "没找到日期标签")
+
+        // 冷启动的静默登录是异步的，日期要等登录完成后才切过去。
+        let deadline = Date().addingTimeInterval(25)
+        var value = label.value as? String
+        while value != day, Date() < deadline {
+            Thread.sleep(forTimeInterval: 1)
+            value = label.value as? String
+        }
+        attach("diarum-target-day")
+        XCTAssertEqual(value, day, "没有定位到目标那一天")
+    }
 }

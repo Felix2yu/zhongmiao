@@ -10,11 +10,14 @@ struct NativeServiceScreen: View {
     #endif
 
     let service: ServiceDefinition
+    /// 点通知进来时要直达的条目；为空就是普通进入。
+    let target: NativeTarget?
 
     var body: some View {
         Group {
             content
         }
+        .environment(\.nativeTarget, target)
         #if DEBUG
         // 调试预览会覆盖这一个服务的地址；标出来，避免被误当成「设置不生效」。
         .safeAreaInset(edge: .top, spacing: 0) {

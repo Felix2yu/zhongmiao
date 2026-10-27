@@ -73,14 +73,39 @@ ZhongmiaoCore（纯 Foundation，可单测）
 
 ## 3. 分流规则
 
-`IntegrationRouter.resolve(serviceID:hasExplicitURL:preferWeb:)` 是唯一入口：
+`IntegrationRouter.resolve(serviceID:hasExplicitURL:preferWeb:hasNativeTarget:)` 是唯一入口：
 
-1. 通知深链带明确页面地址 → **网页**（否则丢掉「打开某条记录」的语义）。
-2. 该应用在设置里勾了「优先使用网页版」 → **网页**。
-3. 已接入且未关闭原生 → **原生**。
-4. 其余 → **网页**。
+1. 用户勾了「优先使用网页版」 → **网页**（显式选择优先）。
+2. 通知带原生条目目标（某场演出、某天日记…） → **原生**，直接落到那一条。
+3. 通知深链带明确页面地址 → **网页**（没有更精确的原生目标时，网页地址才是准的）。
+4. 已接入且未关闭原生 → **原生**。
+5. 其余 → **网页**。
 
 `IntegrationDestination` 的 `.unconfigured` 用于地址还没配好时给配置引导，不锁死页面。
+
+### 3.1 通知直达条目
+
+只带服务 ID 的深链只能落在应用首页——「明天有场演出」点进去还要自己再找一遍。
+提醒里因此多带一个**目标**（`NativeTarget`：`kind` + `identifier`），点通知直达那一条。
+
+| 应用 | kind | identifier | 落点 |
+| :-- | :-- | :-- | :-- |
+| 牵丝 | `anniversary` / `event` / `reminder` | 原始 id | 展开该条并滚到它 |
+| 青野集 | `care` | `yyyy-MM-dd` | 聚焦那一天的分组；远期日期单独列一组 |
+| 吾身 | `diary` | `yyyy-MM-dd` | 直接切到那一天 |
+| 慎始 | `task` | 任务 id | 展开该任务并滚到它 |
+
+目标通过通知 `userInfo` 的 `integrationTargetKind` / `integrationTargetID` 传递，
+由 `PlannedReminder` 在构造时自动写入，调度器不用各自记得塞键。
+
+调试时可用环境变量直接注入目标，验证「目标 → 页面定位」整条链路：
+
+```bash
+SIMCTL_CHILD_ZM_TARGET_SERVICE=qiansi \
+SIMCTL_CHILD_ZM_TARGET_KIND=event \
+SIMCTL_CHILD_ZM_TARGET_ID=<原始 id> \
+xcrun simctl launch --terminate-running-process booted im.yufei.zhongmiao
+```
 
 ## 4. 凭据
 

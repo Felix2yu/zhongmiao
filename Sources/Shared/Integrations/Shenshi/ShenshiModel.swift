@@ -118,7 +118,8 @@ final class ShenshiModel {
                 title: hit.task.title,
                 body: hit.dueLabel ?? "慎始提醒",
                 fireDate: fireDate,
-                userInfo: ["taskId": String(hit.task.id)]
+                userInfo: ["taskId": String(hit.task.id)],
+                target: NativeTarget(kind: "task", identifier: String(hit.task.id))
             )
         }
         await center.syncReminders(serviceID: "shenshi", plans: plans)

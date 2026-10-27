@@ -4,6 +4,8 @@ import ZhongmiaoCore
 struct QingyeScreen: View {
 
     @Environment(AppModel.self) private var model
+    /// 点通知进来时要定位到的那一天。
+    @Environment(\.nativeTarget) private var nativeTarget
 
     let service: ServiceDefinition
     let baseURL: URL
@@ -11,6 +13,8 @@ struct QingyeScreen: View {
 
     @State private var store: QingyeModel
     @State private var showCredential = false
+    /// 点通知进来时要定位到的分组（「今天」「明天」…）。
+    @State private var focusSection: String?
 
     init(
         service: ServiceDefinition,
@@ -25,41 +29,49 @@ struct QingyeScreen: View {
     }
 
     var body: some View {
-        List {
-            Section {
-                metrics
-                    .listRowInsets(EdgeInsets(top: 8, leading: 14, bottom: 8, trailing: 14))
-            }
-
-            if let state = bannerState {
+        ScrollViewReader { proxy in
+            List {
                 Section {
-                    IntegrationStatusBanner(
-                        state: state,
-                        error: store.error ?? store.center.lastErrors["qingye"],
-                        onConfigure: { showCredential = true },
-                        onRetry: { Task { await store.refresh() } }
-                    )
-                    .listRowInsets(EdgeInsets())
+                    metrics
+                        .listRowInsets(EdgeInsets(top: 8, leading: 14, bottom: 8, trailing: 14))
                 }
-            }
 
-            Section {
-                roomChips
-                    .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
-            }
-
-            if store.snapshot == nil && store.isLoading {
-                Section {
-                    HStack(spacing: 8) {
-                        ProgressView().controlSize(.small)
-                        Text("正在读取青野…").foregroundStyle(.secondary)
+                if let state = bannerState {
+                    Section {
+                        IntegrationStatusBanner(
+                            state: state,
+                            error: store.error ?? store.center.lastErrors["qingye"],
+                            onConfigure: { showCredential = true },
+                            onRetry: { Task { await store.refresh() } }
+                        )
+                        .listRowInsets(EdgeInsets())
                     }
                 }
-            }
 
-            if store.snapshot != nil {
-                taskSections
-                plantSections
+                Section {
+                    roomChips
+                        .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+                }
+
+                if store.snapshot == nil && store.isLoading {
+                    Section {
+                        HStack(spacing: 8) {
+                            ProgressView().controlSize(.small)
+                            Text("正在读取青野…").foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
+                if store.snapshot != nil {
+                    taskSections
+                    plantSections
+                }
+            }
+            .onChange(of: focusSection) { _, newValue in
+                guard let newValue else { return }
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    proxy.scrollTo(newValue, anchor: .top)
+                }
             }
         }
         .navigationTitle(service.name)
@@ -76,9 +88,10 @@ struct QingyeScreen: View {
         .refreshable {
             await store.refresh()
         }
-        .task {
+        .task(id: nativeTarget?.identifier) {
             await store.loadCache()
             await store.refreshIfNeeded()
+            focusTarget()
         }
         .onChange(of: store.center.reminderRevision) {
             Task { await store.rescheduleReminders() }
@@ -98,6 +111,27 @@ struct QingyeScreen: View {
         let state = store.center.state(for: "qingye")
         if state.isUsable && store.error == nil { return nil }
         return state
+    }
+
+    /// 点通知进来时定位到那一天的养护分组。
+    private func focusTarget() {
+        guard let target = nativeTarget, target.kind == "care" else { return }
+        guard let day = QiansiLocalDate.parse(target.identifier) else { return }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)
+        let targetDay = calendar.startOfDay(for: day)
+        store.focusDate = targetDay
+        if targetDay < today {
+            focusSection = "逾期"
+        } else if targetDay == today {
+            focusSection = "今天"
+        } else if targetDay == tomorrow {
+            focusSection = "明天"
+        } else {
+            // 更远的日期会单独列一组，放在最上面，不用滚。
+            focusSection = nil
+        }
     }
 
     private var metrics: some View {
@@ -151,14 +185,22 @@ struct QingyeScreen: View {
 
     @ViewBuilder
     private var taskSections: some View {
+        if !store.focusTasks.isEmpty {
+            taskSection(store.focusDayLabel, tasks: store.focusTasks, focused: true)
+        }
         taskSection("逾期", tasks: store.overdueTasks, highlight: true)
-        taskSection("今天", tasks: store.todayTasks)
-        taskSection("明天", tasks: store.tomorrowTasks)
-        taskSection("以后", tasks: store.laterTasks)
+        taskSection("今天", tasks: store.todayTasks, focused: focusSection == "今天")
+        taskSection("明天", tasks: store.tomorrowTasks, focused: focusSection == "明天")
+        taskSection("以后", tasks: store.laterTasks, focused: focusSection == "以后")
     }
 
     @ViewBuilder
-    private func taskSection(_ title: String, tasks: [QingyeTask], highlight: Bool = false) -> some View {
+    private func taskSection(
+        _ title: String,
+        tasks: [QingyeTask],
+        highlight: Bool = false,
+        focused: Bool = false
+    ) -> some View {
         if !tasks.isEmpty {
             Section {
                 ForEach(tasks) { task in
@@ -182,9 +224,15 @@ struct QingyeScreen: View {
             } header: {
                 HStack(spacing: 5) {
                     if highlight { Circle().fill(Color.red).frame(width: 6, height: 6) }
-                    Text(title)
+                    Text(title).fontWeight(focused ? .semibold : .regular)
+                    if focused {
+                        Image(systemName: "scope")
+                            .font(.caption2)
+                            .foregroundStyle(.tint)
+                    }
                 }
             }
+            .id(title)
         }
     }
 

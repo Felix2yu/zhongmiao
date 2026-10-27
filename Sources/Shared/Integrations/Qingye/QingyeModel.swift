@@ -20,6 +20,26 @@ final class QingyeModel {
     private(set) var busyPlantIDs: Set<Int> = []
     var selectedRoomID: Int?
     var expandedTaskID: Int?
+
+    /// 点通知进来时要看的那一天。
+    var focusDate: Date?
+
+    /// 那一天的任务。今天/明天/逾期已经在下面的分组里列过，不重复单列。
+    var focusTasks: [QingyeTask] {
+        guard let focusDate else { return [] }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        let day = calendar.startOfDay(for: focusDate)
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)
+        if day <= today || day == tomorrow { return [] }
+        return activeTasks.filter { calendar.isDate($0.nextDue, inSameDayAs: day) }
+    }
+
+    /// 聚焦那天的分组标题。
+    var focusDayLabel: String {
+        guard let focusDate else { return "" }
+        return focusDate.formatted(.dateTime.month().day().weekday(.abbreviated))
+    }
     var expandedPlantID: Int?
 
     init(service: ServiceDefinition, baseURL: URL, center: IntegrationCenter) {

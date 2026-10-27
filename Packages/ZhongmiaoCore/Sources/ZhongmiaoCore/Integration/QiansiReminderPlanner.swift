@@ -108,7 +108,8 @@ public enum QiansiReminderPlanner {
                         title: title,
                         body: remaining == 0 ? "就是今天" : "还有 \(remaining) 天",
                         fireDate: fireDate,
-                        userInfo: ["kind": "anniversary", "id": anniversary.id]
+                        userInfo: ["kind": "anniversary", "id": anniversary.id],
+                        target: NativeTarget(kind: "anniversary", identifier: anniversary.id)
                     )
                 )
             }
@@ -143,7 +144,8 @@ public enum QiansiReminderPlanner {
                     title: "约会 · \(event.title)",
                     body: people.isEmpty ? dateText : "\(dateText) · \(people)",
                     fireDate: fireDate,
-                    userInfo: ["kind": "event", "id": event.id]
+                    userInfo: ["kind": "event", "id": event.id],
+                    target: NativeTarget(kind: "event", identifier: event.id)
                 )
             )
         }
@@ -177,7 +179,8 @@ public enum QiansiReminderPlanner {
                     title: reminder.title,
                     body: reminder.personName ?? "牵丝提醒",
                     fireDate: fireDate,
-                    userInfo: ["kind": "reminder", "id": reminder.id]
+                    userInfo: ["kind": "reminder", "id": reminder.id],
+                    target: NativeTarget(kind: "reminder", identifier: reminder.id)
                 )
             )
         }

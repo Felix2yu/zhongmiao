@@ -38,7 +38,8 @@ public enum DiarumReminderPlanner {
                 title: "今天还没写日记",
                 body: "花几分钟记下今天。",
                 fireDate: fireDate,
-                userInfo: ["kind": "write", "day": day]
+                userInfo: ["kind": "write", "day": day],
+                target: NativeTarget(kind: "diary", identifier: day)
             )
         ]
     }

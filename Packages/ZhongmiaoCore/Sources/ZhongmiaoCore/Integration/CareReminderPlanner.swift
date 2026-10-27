@@ -70,7 +70,8 @@ public enum QingyeReminderPlanner {
                 title: isToday ? "今日养护" : "养护提醒",
                 body: preview + suffix,
                 fireDate: fireDate,
-                userInfo: ["kind": "care", "day": dayText]
+                userInfo: ["kind": "care", "day": dayText],
+                target: NativeTarget(kind: "care", identifier: dayText)
             )
         }
         .sorted { $0.fireDate < $1.fireDate }

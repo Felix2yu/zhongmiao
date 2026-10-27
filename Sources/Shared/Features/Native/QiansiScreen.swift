@@ -4,6 +4,8 @@ import ZhongmiaoCore
 struct QiansiScreen: View {
 
     @Environment(AppModel.self) private var model
+    /// 点通知进来时要直达的那条（纪念日 / 约会 / 提醒）。
+    @Environment(\.nativeTarget) private var nativeTarget
 
     let service: ServiceDefinition
     let baseURL: URL
@@ -13,6 +15,8 @@ struct QiansiScreen: View {
     @State private var showCredential = false
     @State private var showAnniversarySheet = false
     @State private var showEventSheet = false
+    /// 要滚动过去的议程项 id。
+    @State private var focusID: String?
 
     init(
         service: ServiceDefinition,
@@ -29,33 +33,41 @@ struct QiansiScreen: View {
     var body: some View {
         @Bindable var store = store
 
-        List {
-            Section {
-                metrics
-                    .listRowInsets(EdgeInsets(top: 8, leading: 14, bottom: 8, trailing: 14))
-            }
-
-            if let state = bannerState {
+        ScrollViewReader { proxy in
+            List {
                 Section {
-                    IntegrationStatusBanner(
-                        state: state,
-                        error: store.error ?? store.center.lastErrors["qiansi"],
-                        onConfigure: { showCredential = true },
-                        onRetry: { Task { await store.refresh() } }
-                    )
-                    .listRowInsets(EdgeInsets())
+                    metrics
+                        .listRowInsets(EdgeInsets(top: 8, leading: 14, bottom: 8, trailing: 14))
+                }
+
+                if let state = bannerState {
+                    Section {
+                        IntegrationStatusBanner(
+                            state: state,
+                            error: store.error ?? store.center.lastErrors["qiansi"],
+                            onConfigure: { showCredential = true },
+                            onRetry: { Task { await store.refresh() } }
+                        )
+                        .listRowInsets(EdgeInsets())
+                    }
+                }
+
+                Section {
+                    filterChips
+                        .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+                }
+
+                if store.filter == .contacts {
+                    contactsSection
+                } else {
+                    agendaSection
                 }
             }
-
-            Section {
-                filterChips
-                    .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
-            }
-
-            if store.filter == .contacts {
-                contactsSection
-            } else {
-                agendaSection
+            .onChange(of: focusID) { _, newValue in
+                guard let newValue else { return }
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    proxy.scrollTo(newValue, anchor: .center)
+                }
             }
         }
         .navigationTitle(service.name)
@@ -91,9 +103,10 @@ struct QiansiScreen: View {
         .refreshable {
             await store.refresh()
         }
-        .task {
+        .task(id: nativeTarget?.identifier) {
             await store.loadCache()
             await store.refreshIfNeeded()
+            focusTarget()
         }
         .task(id: store.searchText) {
             await store.searchPeople()
@@ -122,6 +135,20 @@ struct QiansiScreen: View {
         let state = store.center.state(for: "qiansi")
         if state.isUsable && store.error == nil { return nil }
         return state
+    }
+
+    /// 点通知进来时把对应那条展开并滚到它。
+    /// 议程项的 id 就是 `kind:原 id`，与提醒里带的目标准确对应。
+    private func focusTarget() {
+        guard let target = nativeTarget else { return }
+        let itemID = "\(target.kind):\(target.identifier)"
+        // 目标可能被当前筛选挡在外面（筛的是生日，目标却是约会），先切到全部。
+        if !store.filteredAgenda.contains(where: { $0.id == itemID }), store.filter != .reminders {
+            store.filter = .reminders
+        }
+        guard store.filteredAgenda.contains(where: { $0.id == itemID }) else { return }
+        store.expandedID = itemID
+        focusID = itemID
     }
 
     private var metrics: some View {
@@ -197,6 +224,7 @@ struct QiansiScreen: View {
                                 Task { await store.complete(reminderID: reminderID) }
                             }
                         )
+                        .id(item.id)
                     }
                 } header: {
                     Text(dayLabel(group.day))

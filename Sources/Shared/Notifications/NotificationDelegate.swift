@@ -1,5 +1,6 @@
 import Foundation
 import UserNotifications
+import ZhongmiaoCore
 
 extension Notification.Name {
     /// AppDelegate 收到 APNs 设备令牌后广播（userInfo 里没有，直接以 String 作 object）。
@@ -9,11 +10,11 @@ extension Notification.Name {
 /// 通知交互代理：前台展示 + 点击跳转。
 final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate, @unchecked Sendable {
 
-    typealias OpenHandler = @Sendable (String, String?) -> Void
+    typealias OpenHandler = @Sendable (String, String?, NativeTarget?) -> Void
     /// 演出通知上的按钮：`(actionIdentifier, showID)`。
     typealias ShowActionHandler = @Sendable (String, String) -> Void
-    /// 原生接入提醒：只带服务 id，落到该应用的原生页。
-    typealias IntegrationOpenHandler = @Sendable (String) -> Void
+    /// 原生接入提醒：`(serviceID, target)`。target 非空时直接落到那一条。
+    typealias IntegrationOpenHandler = @Sendable (String, NativeTarget?) -> Void
 
     private let onOpen: OpenHandler
     private let onShowAction: ShowActionHandler
@@ -52,11 +53,11 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate, @u
         }
 
         if let integrationID = info["integrationServiceID"] as? String, !integrationID.isEmpty {
-            onIntegrationOpen(integrationID)
+            onIntegrationOpen(integrationID, NativeTargetKeys.target(from: info))
             return
         }
 
         guard let serviceID = info["serviceID"] as? String, !serviceID.isEmpty else { return }
-        onOpen(serviceID, info["url"] as? String)
+        onOpen(serviceID, info["url"] as? String, NativeTargetKeys.target(from: info))
     }
 }

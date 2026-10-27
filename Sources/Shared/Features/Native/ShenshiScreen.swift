@@ -4,6 +4,8 @@ import ZhongmiaoCore
 struct ShenshiScreen: View {
 
     @Environment(AppModel.self) private var model
+    /// 点通知进来时要直达的那条任务。
+    @Environment(\.nativeTarget) private var nativeTarget
 
     let service: ServiceDefinition
     let baseURL: URL
@@ -11,6 +13,8 @@ struct ShenshiScreen: View {
 
     @State private var store: ShenshiModel
     @State private var showCredential = false
+    /// 要滚动过去的那条任务。
+    @State private var focusID: String?
 
     init(
         service: ServiceDefinition,
@@ -25,36 +29,37 @@ struct ShenshiScreen: View {
     }
 
     var body: some View {
-        List {
-            Section {
-                metrics
-                    .listRowInsets(EdgeInsets(top: 8, leading: 14, bottom: 8, trailing: 14))
-            }
-
-            if let state = bannerState {
+        ScrollViewReader { proxy in
+            List {
                 Section {
-                    IntegrationStatusBanner(
-                        state: state,
-                        error: store.error ?? store.center.lastErrors["shenshi"],
-                        onConfigure: { showCredential = true },
-                        onRetry: { Task { await store.refresh() } }
-                    )
-                    .listRowInsets(EdgeInsets())
+                    metrics
+                        .listRowInsets(EdgeInsets(top: 8, leading: 14, bottom: 8, trailing: 14))
                 }
-            }
 
-            taskSection("今天", tasks: store.snapshot?.today ?? [])
-            taskSection("逾期", tasks: store.snapshot?.overdue ?? [], highlight: true)
-
-            if let habits = store.snapshot?.habits, !habits.isEmpty {
-                Section {
-                    ForEach(habits) { habit in
-                        habitRow(habit)
+                if let state = bannerState {
+                    Section {
+                        IntegrationStatusBanner(
+                            state: state,
+                            error: store.error ?? store.center.lastErrors["shenshi"],
+                            onConfigure: { showCredential = true },
+                            onRetry: { Task { await store.refresh() } }
+                        )
+                        .listRowInsets(EdgeInsets())
                     }
-                } header: {
-                    Text("习惯")
                 }
-            }
+
+                taskSection("今天", tasks: store.snapshot?.today ?? [])
+                taskSection("逾期", tasks: store.snapshot?.overdue ?? [], highlight: true)
+
+                if let habits = store.snapshot?.habits, !habits.isEmpty {
+                    Section {
+                        ForEach(habits) { habit in
+                            habitRow(habit)
+                        }
+                    } header: {
+                        Text("习惯")
+                    }
+                }
 
             if let reminders = store.snapshot?.reminders, !reminders.isEmpty {
                 Section {
@@ -76,6 +81,7 @@ struct ShenshiScreen: View {
                             }
                         }
                         .padding(.vertical, 1)
+                        .id("task:\(hit.task.id)")
                     }
                 } header: {
                     Text("到期提醒")
@@ -90,6 +96,13 @@ struct ShenshiScreen: View {
                 }
             } footer: {
                 Text("原生只做查看、完成与习惯打卡；任务编辑、复盘和 CalDAV 仍在网页版。")
+            }
+            }
+            .onChange(of: focusID) { _, newValue in
+                guard let newValue else { return }
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    proxy.scrollTo(newValue, anchor: .center)
+                }
             }
         }
         .navigationTitle(service.name)
@@ -106,9 +119,10 @@ struct ShenshiScreen: View {
         .refreshable {
             await store.refresh()
         }
-        .task {
+        .task(id: nativeTarget?.identifier) {
             await store.loadCache()
             await store.refreshIfNeeded()
+            focusTarget()
         }
         .onChange(of: store.center.reminderRevision) {
             Task { await store.rescheduleReminders() }
@@ -128,6 +142,17 @@ struct ShenshiScreen: View {
         let state = store.center.state(for: "shenshi")
         if state.isUsable && store.error == nil { return nil }
         return state
+    }
+
+    /// 点通知进来时展开并滚到那条任务。
+    private func focusTarget() {
+        guard let target = nativeTarget, target.kind == "task" else { return }
+        guard let taskID = Int64(target.identifier) else { return }
+        let snapshot = store.snapshot
+        let listed = (snapshot?.today ?? []) + (snapshot?.overdue ?? [])
+        guard listed.contains(where: { $0.id == taskID }) else { return }
+        store.expandedTaskID = taskID
+        focusID = "task:\(taskID)"
     }
 
     private var metrics: some View {
@@ -153,11 +178,11 @@ struct ShenshiScreen: View {
     }
 
     @ViewBuilder
-    private func taskSection(_ title: String, tasks: [ShenshiTask], highlight: Bool = false) -> some View {
-        if !tasks.isEmpty {
+    private func taskSection(_ title: String, tasks: [ShenshiTask], highlight: Bool = false) -> some View {        if !tasks.isEmpty {
             Section {
                 ForEach(tasks) { task in
                     taskRow(task)
+                        .id("task:\(task.id)")
                 }
             } header: {
                 HStack(spacing: 5) {

@@ -4,6 +4,8 @@ import ZhongmiaoCore
 struct DiarumScreen: View {
 
     @Environment(AppModel.self) private var model
+    /// 点通知进来时要直达的那一天。
+    @Environment(\.nativeTarget) private var nativeTarget
 
     let service: ServiceDefinition
     let baseURL: URL
@@ -121,9 +123,13 @@ struct DiarumScreen: View {
             await store.refresh()
             await loadEntry(selectedDate)
         }
-        .task {
+        .task(id: nativeTarget?.identifier) {
             await store.loadCache()
             await store.refreshIfNeeded()
+            // 点通知「今天还没写日记」进来时，目标就是今天；带上别的日期时按那天走。
+            if let date = Self.targetDate(nativeTarget) {
+                selectedDate = date
+            }
             await loadEntry(selectedDate)
             await scheduleReminder()
         }
@@ -193,6 +199,9 @@ struct DiarumScreen: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
+                // 标题文案跟着系统语言走，断言不了；给一个稳定的 ISO 值。
+                .accessibilityIdentifier("diarum.dateLabel")
+                .accessibilityValue(currentDateString)
 
                 Spacer()
 
@@ -565,5 +574,12 @@ struct DiarumScreen: View {
             minute: preference.reminderMinute
         )
         await store.center.syncReminders(serviceID: "diarum", plans: plans)
+    }
+
+    /// 目标里的日期串（yyyy-MM-dd）转成当天零点。
+    private static func targetDate(_ target: NativeTarget?) -> Date? {
+        guard let target, target.kind == "diary" else { return nil }
+        guard let parsed = QiansiLocalDate.parse(target.identifier) else { return nil }
+        return QiansiLocalDate.startOfDay(parsed)
     }
 }

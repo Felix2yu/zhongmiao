@@ -9,6 +9,8 @@ public struct PlannedReminder: Identifiable, Hashable, Sendable {
     public var body: String
     public var fireDate: Date
     public var userInfo: [String: String]
+    /// 点通知时直接打开原生页里的这一条。
+    public var target: NativeTarget?
 
     public init(
         id: String,
@@ -16,14 +18,23 @@ public struct PlannedReminder: Identifiable, Hashable, Sendable {
         title: String,
         body: String,
         fireDate: Date,
-        userInfo: [String: String] = [:]
+        userInfo: [String: String] = [:],
+        target: NativeTarget? = nil
     ) {
         self.id = id
         self.serviceID = serviceID
         self.title = title
         self.body = body
         self.fireDate = fireDate
-        self.userInfo = userInfo
+        self.target = target
+        var info = userInfo
+        // 目标直接写进 userInfo，调度器不用各自记得塞键。
+        if let target, !target.isEmpty {
+            for (key, value) in NativeTargetKeys.userInfo(for: target) {
+                info[key] = value
+            }
+        }
+        self.userInfo = info
     }
 }
 

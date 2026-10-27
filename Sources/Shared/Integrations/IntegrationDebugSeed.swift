@@ -48,6 +48,24 @@ enum IntegrationDebugSeed {
         return "调试直连 \(url.host ?? ""):\(url.port ?? 0)"
     }
 
+    /// 调试用：直接注入一个原生条目目标，模拟「点通知直达某一条」。
+    /// 用 ZM_TARGET_SERVICE / ZM_TARGET_KIND / ZM_TARGET_ID 三个环境变量。
+    static var nativeTargetServiceID: String? {
+        let raw = ProcessInfo.processInfo.environment["ZM_TARGET_SERVICE"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let raw, !raw.isEmpty else { return nil }
+        return raw
+    }
+
+    static var nativeTarget: NativeTarget? {
+        let env = ProcessInfo.processInfo.environment
+        guard let kind = env["ZM_TARGET_KIND"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              let identifier = env["ZM_TARGET_ID"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !kind.isEmpty, !identifier.isEmpty
+        else { return nil }
+        return NativeTarget(kind: kind, identifier: identifier)
+    }
+
 
     /// 清掉调试种子写进钥匙串的凭据，让设备回到「什么都没配」的状态。
     /// 用途：本机临时服务跑完测试后，别把测试账号留在真机上。

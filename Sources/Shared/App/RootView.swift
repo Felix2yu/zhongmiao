@@ -66,11 +66,12 @@ struct RootView: View {
             let destination = IntegrationRouter.resolve(
                 serviceID: service.id,
                 hasExplicitURL: route.url != nil,
-                preferWeb: route.preferWeb || preference.preferWeb
+                preferWeb: route.preferWeb || preference.preferWeb,
+                hasNativeTarget: route.target != nil
             )
             switch destination {
             case .native:
-                NativeServiceScreen(service: service)
+                NativeServiceScreen(service: service, target: route.target)
             case .web, .unconfigured:
                 ServiceScreen(service: service, initialURL: url)
             }

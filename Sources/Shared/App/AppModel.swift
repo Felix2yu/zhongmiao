@@ -65,14 +65,20 @@ final class AppModel {
     struct Route: Hashable, Identifiable {
         var serviceID: String
         var url: URL?
+        /// 原生页内的具体条目（某场演出、某天日记…）。点通知直达这一条。
+        var target: NativeTarget?
         /// 用户在原生页里主动切到网页版，或设置里勾了“优先网页版”。
         var preferWeb: Bool
 
-        var id: String { "\(serviceID)#\(url?.absoluteString ?? "root")#\(preferWeb)" }
+        var id: String {
+            let targetPart = target.map { "\($0.kind)=\($0.identifier)" } ?? "root"
+            return "\(serviceID)#\(url?.absoluteString ?? "root")#\(targetPart)#\(preferWeb)"
+        }
 
-        init(serviceID: String, url: URL? = nil, preferWeb: Bool = false) {
+        init(serviceID: String, url: URL? = nil, target: NativeTarget? = nil, preferWeb: Bool = false) {
             self.serviceID = serviceID
             self.url = url
+            self.target = target
             self.preferWeb = preferWeb
         }
     }
@@ -102,6 +108,12 @@ final class AppModel {
         if let preview = IntegrationDebugSeed.previewServiceID {
             pendingRoute = Route(serviceID: preview)
         }
+        // 调试用：直接注入一个原生条目目标，验证「点通知直达某一条」。
+        if let target = IntegrationDebugSeed.nativeTarget,
+           let serviceID = IntegrationDebugSeed.nativeTargetServiceID,
+           ServiceCatalog.service(id: serviceID) != nil {
+            pendingRoute = Route(serviceID: serviceID, target: target)
+        }
         #endif
     }
 
@@ -120,9 +132,9 @@ final class AppModel {
         integrations.registerReminderCategory()
 
         let delegate = NotificationDelegate(
-            onOpen: { serviceID, urlString in
+            onOpen: { serviceID, urlString, target in
                 Task { @MainActor in
-                    AppModel.shared.handleNotificationOpen(serviceID: serviceID, urlString: urlString)
+                    AppModel.shared.handleNotificationOpen(serviceID: serviceID, urlString: urlString, target: target)
                 }
             },
             onShowAction: { action, showID in
@@ -130,9 +142,9 @@ final class AppModel {
                     AppModel.shared.handleShowAction(action, showID: showID)
                 }
             },
-            onIntegrationOpen: { serviceID in
+            onIntegrationOpen: { serviceID, target in
                 Task { @MainActor in
-                    AppModel.shared.handleIntegrationNotification(serviceID: serviceID)
+                    AppModel.shared.handleIntegrationNotification(serviceID: serviceID, target: target)
                 }
             }
         )
@@ -508,7 +520,7 @@ final class AppModel {
         }
     }
 
-    private func handleNotificationOpen(serviceID: String, urlString: String?) {
+    private func handleNotificationOpen(serviceID: String, urlString: String?, target: NativeTarget?) {
         // 独立订阅的主题没有应用页，统一落到 ntfy。
         let routeID = ServiceDisplay.routeServiceID(for: serviceID)
         guard ServiceCatalog.service(id: routeID) != nil else { return }
@@ -516,14 +528,14 @@ final class AppModel {
             guard !raw.isEmpty else { return nil }
             return URL(string: raw)
         }
-        pendingRoute = Route(serviceID: routeID, url: url)
+        pendingRoute = Route(serviceID: routeID, url: url, target: target)
         appendLog("打开通知：\(routeID)")
     }
 
-    private func handleIntegrationNotification(serviceID: String) {
+    private func handleIntegrationNotification(serviceID: String, target: NativeTarget?) {
         guard ServiceCatalog.service(id: serviceID) != nil else { return }
-        pendingRoute = Route(serviceID: serviceID)
-        appendLog("打开原生提醒：\(serviceID)")
+        pendingRoute = Route(serviceID: serviceID, target: target)
+        appendLog(target.map { "打开原生提醒：\(serviceID) · \($0.kind)" } ?? "打开原生提醒：\(serviceID)")
     }
 
     // MARK: - 页面内通知
