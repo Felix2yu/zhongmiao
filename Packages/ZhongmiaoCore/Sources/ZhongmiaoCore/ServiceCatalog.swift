@@ -53,7 +53,7 @@ public enum ServiceCatalog {
         ServiceDefinition(
             id: "liuxia",
             name: "流霞",
-            summary: "图片流与归档",
+            summary: "朝霞晚霞预报",
             symbol: "photo.stack",
             tint: "C96A9B",
             category: .media,
@@ -97,7 +97,7 @@ public enum ServiceCatalog {
         ServiceDefinition(
             id: "qingye",
             name: "青野集",
-            summary: "摘录与收藏",
+            summary: "植物养护与提醒",
             symbol: "leaf",
             tint: "3F9A6B",
             category: .knowledge,
@@ -108,7 +108,7 @@ public enum ServiceCatalog {
         ServiceDefinition(
             id: "chaxin",
             name: "察新",
-            summary: "资讯聚合与阅读",
+            summary: "版本发布监控",
             symbol: "newspaper",
             tint: "4E8299",
             category: .knowledge,

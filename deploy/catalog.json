@@ -45,7 +45,7 @@
     "path" : "/",
     "port" : 8080,
     "subdomain" : "liuxia",
-    "summary" : "图片流与归档"
+    "summary" : "朝霞晚霞预报"
   },
   {
     "category" : "media",
@@ -93,7 +93,7 @@
     "path" : "/",
     "port" : 8081,
     "subdomain" : "qingye",
-    "summary" : "摘录与收藏"
+    "summary" : "植物养护与提醒"
   },
   {
     "category" : "knowledge",
@@ -105,7 +105,7 @@
     "path" : "/",
     "port" : 8080,
     "subdomain" : "chaxin",
-    "summary" : "资讯聚合与阅读"
+    "summary" : "版本发布监控"
   },
   {
     "category" : "knowledge",
