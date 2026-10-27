@@ -30,6 +30,7 @@ final class ShowScheduler: @unchecked Sendable {
         "show.\(showID)"
     }
 
+    @MainActor
     func registerCategories() {
         let watch = UNNotificationAction(
             identifier: Self.watchActionIdentifier,
@@ -47,7 +48,7 @@ final class ShowScheduler: @unchecked Sendable {
             intentIdentifiers: [],
             options: []
         )
-        center.setNotificationCategories([category])
+        NotificationCategoryRegistry.register(category, center: center)
     }
 
     // MARK: - 排程

@@ -129,8 +129,12 @@ struct NtfyTopicsView: View {
             }
 
             Section {
-                SecureField("访问令牌（服务器不校验时可留空）", text: $model.settings.ntfyToken)
-                    .zmPlainTextInput()
+                SecretField(
+                    title: "访问令牌",
+                    key: .ntfy,
+                    footer: "服务端不校验时可留空。",
+                    onSave: { Task { await load() } }
+                )
             } header: {
                 Text("访问令牌")
             } footer: {
@@ -148,9 +152,6 @@ struct NtfyTopicsView: View {
         .onChange(of: model.settings.ntfyBaseURLOverride) { _, _ in
             model.persistSettings()
             Task { await load() }
-        }
-        .onChange(of: model.settings.ntfyToken) { _, _ in
-            model.persistSettings()
         }
         .refreshable {
             await load()

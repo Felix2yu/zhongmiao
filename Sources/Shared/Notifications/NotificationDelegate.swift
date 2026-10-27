@@ -12,13 +12,21 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate, @u
     typealias OpenHandler = @Sendable (String, String?) -> Void
     /// 演出通知上的按钮：`(actionIdentifier, showID)`。
     typealias ShowActionHandler = @Sendable (String, String) -> Void
+    /// 原生接入提醒：只带服务 id，落到该应用的原生页。
+    typealias IntegrationOpenHandler = @Sendable (String) -> Void
 
     private let onOpen: OpenHandler
     private let onShowAction: ShowActionHandler
+    private let onIntegrationOpen: IntegrationOpenHandler
 
-    init(onOpen: @escaping OpenHandler, onShowAction: @escaping ShowActionHandler) {
+    init(
+        onOpen: @escaping OpenHandler,
+        onShowAction: @escaping ShowActionHandler,
+        onIntegrationOpen: @escaping IntegrationOpenHandler
+    ) {
         self.onOpen = onOpen
         self.onShowAction = onShowAction
+        self.onIntegrationOpen = onIntegrationOpen
         super.init()
     }
 
@@ -40,6 +48,11 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate, @u
         // 「盯场」按钮要的是开岛而不是打开页面。
         if let showID = info["showID"] as? String, !showID.isEmpty {
             onShowAction(response.actionIdentifier, showID)
+            return
+        }
+
+        if let integrationID = info["integrationServiceID"] as? String, !integrationID.isEmpty {
+            onIntegrationOpen(integrationID)
             return
         }
 

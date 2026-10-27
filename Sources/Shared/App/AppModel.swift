@@ -47,6 +47,7 @@ final class AppModel {
     var pendingRoute: Route?
 
     let network = NetworkMonitor()
+    let integrations: IntegrationCenter
 
     private let scheduler: NotificationScheduler
     private let engine: NotificationEngine
@@ -64,25 +65,50 @@ final class AppModel {
     struct Route: Hashable, Identifiable {
         var serviceID: String
         var url: URL?
+        /// 用户在原生页里主动切到网页版，或设置里勾了“优先网页版”。
+        var preferWeb: Bool
 
-        var id: String { "\(serviceID)#\(url?.absoluteString ?? "root")" }
+        var id: String { "\(serviceID)#\(url?.absoluteString ?? "root")#\(preferWeb)" }
 
-        init(serviceID: String, url: URL? = nil) {
+        init(serviceID: String, url: URL? = nil, preferWeb: Bool = false) {
             self.serviceID = serviceID
             self.url = url
+            self.preferWeb = preferWeb
         }
     }
 
     // MARK: - 初始化
 
     private init() {
+        #if DEBUG
+        IntegrationDebugSeed.applyIfNeeded()
+        #endif
+        // 先迁移明文密钥，再读设置；迁移成功后原始 JSON 里的键会被删除。
+        let migration = LegacySecretMigration.run()
+        let secrets = SecretStore()
+        self.integrations = IntegrationCenter(secrets: secrets)
+
         let settings = SettingsStorage.load()
         self.settings = settings
         self.ntfyTopics = NtfySubscriptionStore.load()
         let scheduler = NotificationScheduler()
         self.scheduler = scheduler
         self.engine = NotificationEngine(scheduler: scheduler, capacity: settings.inboxCapacity)
+
+        if !migration.isEmpty {
+            appendLog("密钥迁移：\(migration.logText)")
+        }
+        #if DEBUG
+        if let preview = IntegrationDebugSeed.previewServiceID {
+            pendingRoute = Route(serviceID: preview)
+        }
+        #endif
     }
+
+    // 旧调用点仍按属性读取；实际值来自 Keychain。
+    var mujianToken: String { integrations.secrets.value(for: .mujian) }
+    var ntfyToken: String { integrations.secrets.value(for: .ntfy) }
+    var relaySecret: String { integrations.secrets.value(for: .relay) }
 
     /// 由 AppDelegate 调用：注册通知代理、启动网络监听。必须早于页面加载。
     func activate() {
@@ -91,6 +117,7 @@ final class AppModel {
 
         scheduler.registerCategories()
         showScheduler.registerCategories()
+        integrations.registerReminderCategory()
 
         let delegate = NotificationDelegate(
             onOpen: { serviceID, urlString in
@@ -101,6 +128,11 @@ final class AppModel {
             onShowAction: { action, showID in
                 Task { @MainActor in
                     AppModel.shared.handleShowAction(action, showID: showID)
+                }
+            },
+            onIntegrationOpen: { serviceID in
+                Task { @MainActor in
+                    AppModel.shared.handleIntegrationNotification(serviceID: serviceID)
                 }
             }
         )
@@ -133,7 +165,23 @@ final class AppModel {
         }
         scheduleBackgroundRefresh()
         syncNow(reason: "启动")
+        #if DEBUG
+        if IntegrationDebugSeed.previewServiceID == nil {
+            await refreshShows()
+        }
+        #else
         await refreshShows()
+        #endif
+        Task { await validateIntegrationsOnLaunch() }
+    }
+
+    /// 冷启动静默验证已配置的原生接入；未配置的应用不发起请求。
+    func validateIntegrationsOnLaunch() async {
+        for definition in IntegrationCatalog.integrated {
+            guard let service = ServiceCatalog.service(id: definition.serviceID),
+                  let baseURL = url(for: service) else { continue }
+            await integrations.validateIfConfigured(serviceID: definition.serviceID, baseURL: baseURL)
+        }
     }
 
     // MARK: - 演出
@@ -148,7 +196,7 @@ final class AppModel {
             return
         }
 
-        let outcome = await showStore.refresh(settings: settings)
+        let outcome = await showStore.refresh(settings: settings, token: mujianToken)
         shows = outcome.library.upcoming()
 
         if let error = outcome.apiError { appendLog("幕间演出拉取失败：\(error)") }
@@ -218,7 +266,12 @@ final class AppModel {
     // MARK: - 地址解析
 
     func url(for service: ServiceDefinition) -> URL? {
-        ServiceURLResolver.url(
+        #if DEBUG
+        if let previewURL = IntegrationDebugSeed.baseURL(for: service.id) {
+            return previewURL
+        }
+        #endif
+        return ServiceURLResolver.url(
             for: service,
             settings: settings.addressing,
             override: settings.preference(for: service).urlOverride
@@ -282,7 +335,7 @@ final class AppModel {
             ))
         }
         do {
-            return .success(try await feeds.fetchNtfyTopics(base: base, token: settings.ntfyToken))
+            return .success(try await feeds.fetchNtfyTopics(base: base, token: ntfyToken))
         } catch {
             return .failure(NtfyTopicsError(message: Self.describe(error)))
         }
@@ -317,9 +370,9 @@ final class AppModel {
                     feedPath: hasFeed ? feedPath : nil,
                     ntfyTopic: hasTopic ? topic : nil,
                     ntfyBaseURL: hasTopic ? ntfyBase : nil,
-                    ntfyToken: settings.ntfyToken,
+                    ntfyToken: ntfyToken,
                     relayURL: useRelay ? relay : nil,
-                    relaySecret: settings.relaySecret
+                    relaySecret: relaySecret
                 )
             )
         }
@@ -336,7 +389,7 @@ final class AppModel {
                         feedPath: nil,
                         ntfyTopic: topic,
                         ntfyBaseURL: ntfyBase,
-                        ntfyToken: settings.ntfyToken,
+                        ntfyToken: ntfyToken,
                         relayURL: nil,
                         relaySecret: ""
                     )
@@ -416,7 +469,7 @@ final class AppModel {
 
     func uploadPushToken() {
         guard let token = pushToken, let relay = relayURL() else { return }
-        let secret = settings.relaySecret
+        let secret = relaySecret
         Task {
             do {
                 try await feeds.registerDevice(
@@ -445,6 +498,12 @@ final class AppModel {
         }
         pendingRoute = Route(serviceID: routeID, url: url)
         appendLog("打开通知：\(routeID)")
+    }
+
+    private func handleIntegrationNotification(serviceID: String) {
+        guard ServiceCatalog.service(id: serviceID) != nil else { return }
+        pendingRoute = Route(serviceID: serviceID)
+        appendLog("打开原生提醒：\(serviceID)")
     }
 
     // MARK: - 页面内通知
@@ -482,7 +541,7 @@ final class AppModel {
     /// 本地状态先落库，推送是尽力而为：推失败不影响本地，只是服务端暂时落后。
     private func pushReadStateToServer(_ items: [NotificationItem]) async {
         // 上次被服务端拒绝过就别再试了，除非令牌换了。
-        guard ntfyRejectedToken != settings.ntfyToken else { return }
+        guard ntfyRejectedToken != ntfyToken else { return }
         guard let base = resolvedNtfyBase() else { return }
 
         // 按主题分组：一个主题一次请求，服务端会按主题逐条广播。
@@ -499,7 +558,7 @@ final class AppModel {
                 base: base,
                 topic: topic,
                 ids: ids,
-                token: settings.ntfyToken
+                token: ntfyToken
             )
             switch outcome {
             case .accepted:
@@ -508,7 +567,7 @@ final class AppModel {
                 appendLog("ntfy 上找不到 \(topic) 的这批消息，无需标记")
             case .rejected(let status):
                 // 服务端拒绝写入：缺令牌或没有该主题的写权限，再试也没用。
-                ntfyRejectedToken = settings.ntfyToken
+                ntfyRejectedToken = ntfyToken
                 appendLog("ntfy 拒绝标记已读（HTTP \(status)）：需要访问令牌或该主题的写权限")
             case .failed:
                 appendLog("ntfy 标记已读失败：\(topic)")

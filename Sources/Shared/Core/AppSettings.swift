@@ -67,12 +67,8 @@ struct AppSettings: Codable, Hashable, Sendable {
     var servicePreferences: [String: ServicePreference]
     /// 可选：自建推送中继地址（见 server/push-relay）。
     var relayURL: String
-    /// 中继共享密钥，随请求头发送。
-    var relaySecret: String
     /// ntfy 服务地址覆盖（默认取注册表里 ntfy 的解析结果）。
     var ntfyBaseURLOverride: String
-    /// ntfy 访问令牌。服务端开了访问控制时，读主题与「标记已读」都要带它。
-    var ntfyToken: String
     /// 后台刷新开关。
     var backgroundRefreshEnabled: Bool
     /// 冷启动回看窗口（小时）。
@@ -94,8 +90,6 @@ struct AppSettings: Codable, Hashable, Sendable {
     /// 灵动岛提前量（小时）。默认贴着系统上限 8 小时——岛的触发时刻由快捷指令
     /// 或「打开 App」决定，窗口开得越大越容易被命中。
     var showsIslandLeadHours: Int
-    /// 幕间访问令牌（服务端 `MJ_AUTH_TOKEN`）。免鉴权时留空。
-    var mujianToken: String
     /// 是否从幕间 API 拉取演出。
     var showsUseMujianAPI: Bool
     /// 是否从系统日历读取演出（幕间 CalDAV 同步过去的事件）。
@@ -110,9 +104,7 @@ struct AppSettings: Codable, Hashable, Sendable {
         addressing: AddressSettings = .default,
         servicePreferences: [String: ServicePreference] = [:],
         relayURL: String = "",
-        relaySecret: String = "",
         ntfyBaseURLOverride: String = "",
-        ntfyToken: String = "",
         backgroundRefreshEnabled: Bool = true,
         lookbackHours: Int = 24,
         inboxCapacity: Int = 500,
@@ -120,7 +112,6 @@ struct AppSettings: Codable, Hashable, Sendable {
         showsEnabled: Bool = true,
         showsReminderLeadHours: Int = 4,
         showsIslandLeadHours: Int = 8,
-        mujianToken: String = "",
         showsUseMujianAPI: Bool = true,
         showsUseCalendar: Bool = true,
         showsCalendarKeywords: String = ""
@@ -128,9 +119,7 @@ struct AppSettings: Codable, Hashable, Sendable {
         self.addressing = addressing
         self.servicePreferences = servicePreferences
         self.relayURL = relayURL
-        self.relaySecret = relaySecret
         self.ntfyBaseURLOverride = ntfyBaseURLOverride
-        self.ntfyToken = ntfyToken
         self.backgroundRefreshEnabled = backgroundRefreshEnabled
         self.lookbackHours = lookbackHours
         self.inboxCapacity = inboxCapacity
@@ -138,18 +127,17 @@ struct AppSettings: Codable, Hashable, Sendable {
         self.showsEnabled = showsEnabled
         self.showsReminderLeadHours = showsReminderLeadHours
         self.showsIslandLeadHours = showsIslandLeadHours
-        self.mujianToken = mujianToken
         self.showsUseMujianAPI = showsUseMujianAPI
         self.showsUseCalendar = showsUseCalendar
         self.showsCalendarKeywords = showsCalendarKeywords
     }
 
     private enum CodingKeys: String, CodingKey {
-        case addressing, servicePreferences, relayURL, relaySecret
-        case ntfyBaseURLOverride, ntfyToken, backgroundRefreshEnabled, lookbackHours, inboxCapacity
+        case addressing, servicePreferences, relayURL
+        case ntfyBaseURLOverride, backgroundRefreshEnabled, lookbackHours, inboxCapacity
         case showServiceCapabilityTags
         case showsEnabled, showsReminderLeadHours, showsIslandLeadHours
-        case mujianToken, showsUseMujianAPI, showsUseCalendar, showsCalendarKeywords
+        case showsUseMujianAPI, showsUseCalendar, showsCalendarKeywords
     }
 
     /// 逐字段解码，新增字段缺失时回落到默认值 —— 旧版本存下的设置不能因为
@@ -159,9 +147,7 @@ struct AppSettings: Codable, Hashable, Sendable {
         addressing = try container.decodeIfPresent(AddressSettings.self, forKey: .addressing) ?? .default
         servicePreferences = try container.decodeIfPresent([String: ServicePreference].self, forKey: .servicePreferences) ?? [:]
         relayURL = try container.decodeIfPresent(String.self, forKey: .relayURL) ?? ""
-        relaySecret = try container.decodeIfPresent(String.self, forKey: .relaySecret) ?? ""
         ntfyBaseURLOverride = try container.decodeIfPresent(String.self, forKey: .ntfyBaseURLOverride) ?? ""
-        ntfyToken = try container.decodeIfPresent(String.self, forKey: .ntfyToken) ?? ""
         backgroundRefreshEnabled = try container.decodeIfPresent(Bool.self, forKey: .backgroundRefreshEnabled) ?? true
         lookbackHours = try container.decodeIfPresent(Int.self, forKey: .lookbackHours) ?? 24
         inboxCapacity = try container.decodeIfPresent(Int.self, forKey: .inboxCapacity) ?? 500
@@ -169,7 +155,6 @@ struct AppSettings: Codable, Hashable, Sendable {
         showsEnabled = try container.decodeIfPresent(Bool.self, forKey: .showsEnabled) ?? true
         showsReminderLeadHours = try container.decodeIfPresent(Int.self, forKey: .showsReminderLeadHours) ?? 4
         showsIslandLeadHours = try container.decodeIfPresent(Int.self, forKey: .showsIslandLeadHours) ?? 8
-        mujianToken = try container.decodeIfPresent(String.self, forKey: .mujianToken) ?? ""
         showsUseMujianAPI = try container.decodeIfPresent(Bool.self, forKey: .showsUseMujianAPI) ?? true
         showsUseCalendar = try container.decodeIfPresent(Bool.self, forKey: .showsUseCalendar) ?? true
         showsCalendarKeywords = try container.decodeIfPresent(String.self, forKey: .showsCalendarKeywords) ?? ""
@@ -219,10 +204,10 @@ struct AppSettings: Codable, Hashable, Sendable {
 }
 
 enum SettingsStorage {
-    private static let key = "zhongmiao.settings.v1"
+    static let userDefaultsKey = "zhongmiao.settings.v1"
 
     static func load() -> AppSettings {
-        guard let data = UserDefaults.standard.data(forKey: key),
+        guard let data = UserDefaults.standard.data(forKey: userDefaultsKey),
               let decoded = try? JSONDecoder().decode(AppSettings.self, from: data) else {
             return AppSettings()
         }
@@ -231,6 +216,6 @@ enum SettingsStorage {
 
     static func save(_ settings: AppSettings) {
         guard let data = try? JSONEncoder().encode(settings) else { return }
-        UserDefaults.standard.set(data, forKey: key)
+        UserDefaults.standard.set(data, forKey: userDefaultsKey)
     }
 }

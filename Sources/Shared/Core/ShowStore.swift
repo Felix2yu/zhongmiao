@@ -50,7 +50,7 @@ actor ShowStore {
     /// 两个数据源彼此独立：幕间挂了不影响日历，反之亦然。任一失败都保留旧缓存——
     /// 一次网络抖动不该清空用户已经排好的提醒。
     @discardableResult
-    func refresh(settings: AppSettings) async -> ShowRefreshOutcome {
+    func refresh(settings: AppSettings, token: String) async -> ShowRefreshOutcome {
         guard settings.showsEnabled else {
             return ShowRefreshOutcome(library: library)
         }
@@ -62,7 +62,7 @@ actor ShowStore {
 
         if settings.showsUseMujianAPI {
             do {
-                let shows = try await fetchFromMujian(settings: settings)
+                let shows = try await fetchFromMujian(settings: settings, token: token)
                 working.merge(shows)
                 working.markFetched(.mujian)
             } catch {
@@ -96,7 +96,7 @@ actor ShowStore {
     /// 向前看多少天。与缓存保留期无关，只影响一次拉多少数据。
     static let lookaheadDays = 14
 
-    private func fetchFromMujian(settings: AppSettings) async throws -> [Show] {
+    private func fetchFromMujian(settings: AppSettings, token: String) async throws -> [Show] {
         guard let service = ServiceCatalog.service(id: "mujian") else {
             throw ShowClient.Failure(status: 0)
         }
@@ -109,7 +109,7 @@ actor ShowStore {
             throw URLError(.badURL)
         }
         let client = ShowClient(days: Self.lookaheadDays)
-        return try await client.fetchUpcoming(baseURL: baseURL, token: settings.mujianToken)
+        return try await client.fetchUpcoming(baseURL: baseURL, token: token)
     }
 
     // MARK: - 落盘

@@ -49,6 +49,7 @@ final class NotificationScheduler: @unchecked Sendable {
         }
     }
 
+    @MainActor
     func registerCategories() {
         let open = UNNotificationAction(
             identifier: Self.openActionIdentifier,
@@ -61,7 +62,7 @@ final class NotificationScheduler: @unchecked Sendable {
             intentIdentifiers: [],
             options: []
         )
-        center.setNotificationCategories([category])
+        NotificationCategoryRegistry.register(category, center: center)
     }
 
     struct DeliveryOutcome: Sendable {

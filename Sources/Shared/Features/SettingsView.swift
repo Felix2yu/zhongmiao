@@ -33,6 +33,23 @@ struct SettingsView: View {
             }
 
             Section {
+                NavigationLink {
+                    IntegrationSettingsView()
+                } label: {
+                    LabeledContent {
+                        Text("\(connectedCount)/\(IntegrationCatalog.integrated.count) 已连接")
+                            .foregroundStyle(.secondary)
+                    } label: {
+                        Label("应用接入", systemImage: "key")
+                    }
+                }
+            } header: {
+                Text("应用接入")
+            } footer: {
+                Text("有 API 的应用优先使用原生界面；高级、低频操作仍可跳到网页版。凭据保存在系统钥匙串，网页版登录态不受影响。")
+            }
+
+            Section {
                 LabeledContent("授权状态", value: model.notificationStatusText)
 
                 if model.authorization == .notDetermined {
@@ -92,8 +109,11 @@ struct SettingsView: View {
                     }
                     #endif
 
-                    TextField("幕间访问令牌", text: $model.settings.mujianToken)
-                        .zmPlainTextInput()
+                    SecretField(
+                        title: "幕间访问令牌",
+                        key: .mujian,
+                        footer: "保存在系统钥匙串；服务端免鉴权时留空。"
+                    )
 
                     Toggle("从幕间拉取", isOn: $model.settings.showsUseMujianAPI)
 
@@ -138,8 +158,11 @@ struct SettingsView: View {
                     .keyboardType(.URL)
                     #endif
 
-                TextField("中继共享密钥", text: $model.settings.relaySecret)
-                    .zmPlainTextInput()
+                SecretField(
+                    title: "中继共享密钥",
+                    key: .relay,
+                    footer: "保存在系统钥匙串，随 X-Zhongmiao-Token 请求头发送。"
+                )
 
                 LabeledContent("设备令牌") {
                     Text(model.pushToken.map { String($0.prefix(10)) + "…" } ?? "未注册")
@@ -241,6 +264,12 @@ struct SettingsView: View {
         return "\(version) (\(build))"
     }
 
+    private var connectedCount: Int {
+        IntegrationCatalog.integrated.filter { definition in
+            model.integrations.state(for: definition.serviceID).isUsable
+        }.count
+    }
+
     // MARK: 演出提醒
 
     /// 演出相关的设置指纹。任一字段变动都重刷一次，省去给七个字段各挂一个 onChange。
@@ -250,7 +279,7 @@ struct SettingsView: View {
             settings.showsEnabled.description,
             String(settings.showsReminderLeadHours),
             String(settings.showsIslandLeadHours),
-            settings.mujianToken,
+            String(model.integrations.secrets.revision),
             settings.showsUseMujianAPI.description,
             settings.showsUseCalendar.description,
             settings.showsCalendarKeywords

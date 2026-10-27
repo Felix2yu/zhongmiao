@@ -68,7 +68,18 @@ struct RootView: View {
     @ViewBuilder
     private func destination(for route: AppModel.Route) -> some View {
         if let service = ServiceCatalog.service(id: route.serviceID), let url = model.url(for: route) {
-            ServiceScreen(service: service, initialURL: url)
+            let preference = model.integrations.preference(for: service.id)
+            let destination = IntegrationRouter.resolve(
+                serviceID: service.id,
+                hasExplicitURL: route.url != nil,
+                preferWeb: route.preferWeb || preference.preferWeb
+            )
+            switch destination {
+            case .native:
+                NativeServiceScreen(service: service)
+            case .web, .unconfigured:
+                ServiceScreen(service: service, initialURL: url)
+            }
         } else {
             ContentUnavailableView(
                 "地址未配置",

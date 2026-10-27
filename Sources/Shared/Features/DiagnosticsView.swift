@@ -17,6 +17,43 @@ struct DiagnosticsView: View {
                 Text("体检会向每个服务的首页发一次 GET 请求。返回 401/403 视为「可达但需要登录」，这对自建应用是正常状态。")
             }
 
+            Section {
+                ForEach(IntegrationCatalog.integrated) { definition in
+                    if let service = ServiceCatalog.service(id: definition.serviceID) {
+                        HStack(spacing: 10) {
+                            ServiceGlyph(service: service, size: 28)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(service.name)
+                                    .font(.subheadline)
+                                Text(definition.priority.shortTitle + " · " + definition.authKind.title)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            let state = model.integrations.state(for: definition.serviceID)
+                            VStack(alignment: .trailing, spacing: 2) {
+                                HStack(spacing: 4) {
+                                    Circle().fill(state.tint).frame(width: 6, height: 6)
+                                    Text(state.title)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                                if definition.supportsReminders {
+                                    Text("提醒 \(model.integrations.reminderCounts[definition.serviceID] ?? 0) 条")
+                                        .font(.caption2.monospacedDigit())
+                                        .foregroundStyle(.tertiary)
+                                }
+                            }
+                        }
+                        .padding(.vertical, 1)
+                    }
+                }
+            } header: {
+                Text("原生接入")
+            } footer: {
+                Text("凭据只在系统钥匙串与本机内存中，日志不记录令牌。提醒数量是当前已排程的本地通知。")
+            }
+
             Section("为什么离线有时不生效") {
                 bullet(
                     "你的部署是 Nginx + HTTPS，Service Worker 可以正常注册，离线缓存生效。只有临时改成 http://IP:端口 排障时才会失去离线能力。",
@@ -66,6 +103,7 @@ struct DiagnosticsView: View {
             }
         }
         .navigationTitle("体检")
+        .task { await model.integrations.refreshReminderCounts() }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
