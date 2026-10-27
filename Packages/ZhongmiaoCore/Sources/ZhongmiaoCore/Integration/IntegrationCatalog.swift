@@ -183,11 +183,14 @@ public enum IntegrationCatalog {
             basePath: "/api",
             capabilities: [
                 IntegrationCapability("未来演出"),
-                IntegrationCapability("看板统计"),
-                IntegrationCapability("近期记录")
+                IntegrationCapability("全部记录与搜索"),
+                IntegrationCapability("演出详情"),
+                IntegrationCapability("看板与剧种/城市分布"),
+                IntegrationCapability("录入演出", isWrite: true),
+                IntegrationCapability("标记已观看", isWrite: true)
             ],
-            summary: "演出日历与看板",
-            webOnlyNote: "录入/编辑演出、剧种管理仍在网页版；演出提醒沿用现有本地通知。",
+            summary: "演出浏览、录入与统计",
+            webOnlyNote: "剧种/演员/场馆管理、照片、批量编辑、导入导出、备份仍在网页版。",
             supportsReminders: false
         ),
         IntegrationDefinition(
@@ -196,12 +199,14 @@ public enum IntegrationCatalog {
             authKind: .login,
             basePath: "/api/v1",
             capabilities: [
-                IntegrationCapability("今日日记"),
+                IntegrationCapability("按日期读日记"),
                 IntegrationCapability("最近日记"),
-                IntegrationCapability("连续天数与总数")
+                IntegrationCapability("搜索正文"),
+                IntegrationCapability("连续天数与总数"),
+                IntegrationCapability("写/改当天正文", isWrite: true)
             ],
-            summary: "今日日记与写作提醒",
-            webOnlyNote: "写日记、媒体、AI 润色、导入导出仍在网页版（写入会整段覆盖正文）。",
+            summary: "日记浏览、检索与原生撰写",
+            webOnlyNote: "情绪/场景/标签编辑、媒体、AI 润色、导入导出仍在网页版。",
             supportsReminders: true
         ),
         IntegrationDefinition(
