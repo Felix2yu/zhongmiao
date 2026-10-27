@@ -6,7 +6,10 @@ import Testing
 @Suite("内嵌浏览器导航策略")
 struct WebContentPolicyTests {
 
-    private let policy = WebContentPolicy()
+    /// 关掉「站外链接在应用内打开」后的策略（出栈行为）。
+    private let policy = WebContentPolicy(keepsExternalLinksInApp: false)
+    /// 默认策略：站外链接也留在应用内。
+    private let inAppPolicy = WebContentPolicy()
     private let host = "shenshi.example.com"
 
     @Test("同主机留在 App 内")
@@ -61,6 +64,23 @@ struct WebContentPolicyTests {
     func inlineSchemes() {
         #expect(policy.decision(for: URL(string: "about:blank")!, serviceHost: host) == .allowInApp)
         #expect(policy.decision(for: URL(string: "blob:https://shenshi.example.com/uuid")!, serviceHost: host) == .allowInApp)
+    }
+
+    @Test("站外链接默认留在应用内（不丢给 Safari）")
+    func externalStaysInAppByDefault() {
+        let url = URL(string: "https://example.org/article")!
+        #expect(inAppPolicy.decision(for: url, serviceHost: host) == .allowInApp)
+        // 相似域名同样留在应用内，但不会被判定为同站（桥不注入）。
+        let lookalike = URL(string: "https://evilshenshi.example.com.attacker.net/")!
+        #expect(inAppPolicy.decision(for: lookalike, serviceHost: host) == .allowInApp)
+        #expect(!inAppPolicy.shouldInjectBridge(for: lookalike, serviceHost: host))
+    }
+
+    @Test("即使留在应用内，系统协议仍然出栈")
+    func systemSchemesStayExternalInAppMode() {
+        #expect(inAppPolicy.decision(for: URL(string: "tel:10086")!, serviceHost: host) == .openExternally)
+        #expect(inAppPolicy.decision(for: URL(string: "mailto:a@b.com")!, serviceHost: host) == .openExternally)
+        #expect(inAppPolicy.decision(for: URL(string: "weird-scheme://payload")!, serviceHost: host) == .cancel)
     }
 
     @Test("只给自己的站点注入原生桥")

@@ -136,6 +136,22 @@ final class IntegrationSmokeTests: XCTestCase {
         attach("mujian-created")
     }
 
+    /// 察新：点 Release 链接应该留在应用内，不再跳 Safari。
+    func testChaxinReleaseOpensInApp() throws {
+        let app = launch("chaxin")
+        let link = app.buttons["查看 Release"].firstMatch
+        try XCTSkipUnless(link.waitForExistence(timeout: 20), "没读到缓存的 Release（先塞 chaxin.json）")
+        attach("chaxin-list")
+
+        link.tap()
+        Thread.sleep(forTimeInterval: 4)
+        attach("chaxin-in-app-browser")
+
+        // 应用内浏览器的特征：有「关闭」按钮，导航标题是域名。
+        let close = app.buttons["关闭"].firstMatch
+        XCTAssertTrue(close.waitForExistence(timeout: 8), "没有弹出应用内浏览器")
+    }
+
     /// 排查用：把当前界面结构打出来，方便定位元素。
     func testDumpTree() {
         let service = ProcessInfo.processInfo.environment["ZM_TEST_SERVICE"] ?? "mujian"
