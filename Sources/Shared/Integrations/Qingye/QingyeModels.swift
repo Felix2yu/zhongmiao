@@ -72,6 +72,27 @@ struct QingyeSnapshot: Codable, Sendable {
     var careLogs: [QingyeCareLog]
 }
 
+/// 新建植物的入参。字段与后端 plantBody 一一对应（roomId 用 0 表示未分房）。
+struct QingyePlantDraft: Sendable {
+    var name: String
+    var species: String = ""
+    var roomID: Int = 0
+    var note: String = ""
+    var location: String = ""
+    var lightRequirement: String = ""
+    var acquiredDate: String = ""
+}
+
+/// 养护指南：植物库匹配到的说明。匹配不到时 found 为 false。
+struct QingyeCareGuide: Codable, Hashable, Sendable {
+    var found: Bool
+    var libraryId: Int?
+    var name: String?
+    var alias: String?
+    var guide: String?
+    var link: String?
+}
+
 enum QingyeDate {
 
     static let decoder: JSONDecoder = {

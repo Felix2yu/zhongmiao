@@ -193,4 +193,26 @@ final class IntegrationSmokeTests: XCTestCase {
         attach("diarum-target-day")
         XCTAssertEqual(value, day, "没有定位到目标那一天")
     }
+
+    /// 青野：原生新建植物，落到服务端。
+    func testQingyeCreatePlant() {
+        let app = launch("qingye")
+
+        let add = app.buttons["添加植物"]
+        XCTAssertTrue(add.waitForExistence(timeout: 15), "没找到添加入口")
+        add.tap()
+
+        let field = app.textFields["qingye.plantName"]
+        XCTAssertTrue(field.waitForExistence(timeout: 8), "表单没出来")
+        field.tap()
+        // 只用 ASCII：模拟器的中文输入法会让 typeText 挂死。
+        field.typeText("UI Plant")
+
+        let confirm = app.buttons["添加"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 8), "没找到保存按钮")
+        confirm.tap()
+
+        Thread.sleep(forTimeInterval: 4)
+        attach("qingye-plant-created")
+    }
 }

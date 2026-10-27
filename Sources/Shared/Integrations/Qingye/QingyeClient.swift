@@ -62,10 +62,49 @@ struct QingyeClient: Sendable {
         let at: String
     }
 
+    /// 新建植物。字段名与后端 plantBody 一一对应。
+    func createPlant(_ draft: QingyePlantDraft) async throws -> QingyePlant {
+        struct Body: Encodable {
+            let name: String
+            let species: String
+            let photo: String
+            let roomId: Int
+            let note: String
+            let location: String
+            let lightReq: String
+            let acquiredDate: String
+            let attributes: String
+        }
+        let body = try JSONEncoder().encode(
+            Body(
+                name: draft.name,
+                species: draft.species,
+                photo: "",
+                roomId: draft.roomID,
+                note: draft.note,
+                location: draft.location,
+                lightReq: draft.lightRequirement,
+                acquiredDate: draft.acquiredDate,
+                attributes: ""
+            )
+        )
+        return try await post("/plants", body: body)
+    }
+
+    /// 单株植物的完整档案。
+    func plant(id: Int) async throws -> QingyePlant {
+        try await get("/plants/\(id)")
+    }
+
+    /// 养护指南：植物库匹配不到时返回 nil。
+    func careGuide(plantID: Int) async throws -> QingyeCareGuide? {
+        let guide: QingyeCareGuide = try await get("/plants/\(plantID)/care-guide")
+        return guide.found ? guide : nil
+    }
+
     private struct NoteBody: Encodable {
         let note: String
     }
-
     private struct PostponeBody: Encodable {
         let days: Int
         let note: String

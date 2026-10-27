@@ -15,6 +15,10 @@ struct QiansiScreen: View {
     @State private var showCredential = false
     @State private var showAnniversarySheet = false
     @State private var showEventSheet = false
+    /// 要编辑的纪念日。
+    @State private var editTarget: QiansiEditTarget?
+    /// 待确认归档的条目。
+    @State private var archiveTarget: QiansiArchiveTarget?
     /// 要滚动过去的议程项 id。
     @State private var focusID: String?
 
@@ -129,6 +133,34 @@ struct QiansiScreen: View {
         .sheet(isPresented: $showEventSheet) {
             QiansiEventSheet(store: store)
         }
+        .sheet(item: $editTarget) { target in
+            if let original = store.anniversary(id: target.rawID) {
+                QiansiEditAnniversarySheet(store: store, original: original)
+            }
+        }
+        .confirmationDialog(
+            archiveTarget.map { "归档「\($0.title)」？" } ?? "归档",
+            isPresented: Binding(
+                get: { archiveTarget != nil },
+                set: { if !$0 { archiveTarget = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("归档", role: .destructive) {
+                guard let target = archiveTarget else { return }
+                Task {
+                    if target.kind == .anniversary {
+                        _ = await store.archiveAnniversary(id: target.rawID)
+                    } else {
+                        _ = await store.archiveEvent(id: target.rawID)
+                    }
+                    archiveTarget = nil
+                }
+            }
+            Button("取消", role: .cancel) {
+                archiveTarget = nil
+            }
+        }
     }
 
     private var bannerState: IntegrationCenter.CredentialState? {
@@ -149,6 +181,22 @@ struct QiansiScreen: View {
         guard store.filteredAgenda.contains(where: { $0.id == itemID }) else { return }
         store.expandedID = itemID
         focusID = itemID
+    }
+
+    /// 提醒是「完成」，不是归档；纪念日与约会可以归档。
+    private func archiveAction(for item: QiansiAgendaItem) -> (() -> Void)? {
+        switch item.kind {
+        case .anniversary:
+            return {
+                archiveTarget = QiansiArchiveTarget(kind: .anniversary, rawID: item.rawID, title: item.title)
+            }
+        case .event:
+            return {
+                archiveTarget = QiansiArchiveTarget(kind: .event, rawID: item.rawID, title: item.title)
+            }
+        case .reminder:
+            return nil
+        }
     }
 
     private var metrics: some View {
@@ -222,7 +270,11 @@ struct QiansiScreen: View {
                             onComplete: {
                                 guard let reminderID = item.reminderID else { return }
                                 Task { await store.complete(reminderID: reminderID) }
-                            }
+                            },
+                            onEdit: item.kind == .anniversary ? {
+                                editTarget = QiansiEditTarget(rawID: item.rawID)
+                            } : nil,
+                            onArchive: archiveAction(for: item)
                         )
                         .id(item.id)
                     }
@@ -277,6 +329,10 @@ private struct QiansiAgendaRow: View {
     let expanded: Bool
     let onToggle: () -> Void
     let onComplete: () -> Void
+    /// 编辑（目前只有纪念日可改）。
+    let onEdit: (() -> Void)?
+    /// 归档。
+    let onArchive: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -321,6 +377,22 @@ private struct QiansiAgendaRow: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.small)
+                    }
+
+                    if onEdit != nil || onArchive != nil {
+                        HStack(spacing: 8) {
+                            if let onEdit {
+                                Button("编辑", action: onEdit)
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.small)
+                            }
+                            if let onArchive {
+                                Button("归档", action: onArchive)
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.small)
+                                    .tint(.orange)
+                            }
+                        }
                     }
                 }
                 .padding(.leading, 32)
@@ -566,8 +638,153 @@ private struct QiansiAnniversarySheet: View {
     }
 }
 
-private struct QiansiEventSheet: View {
+/// 要编辑的纪念日。
+struct QiansiEditTarget: Identifiable {
+    let rawID: String
+    var id: String { rawID }
+}
 
+/// 待归档的条目。
+struct QiansiArchiveTarget: Identifiable {
+    enum Kind: String {
+        case anniversary
+        case event
+    }
+    let kind: Kind
+    let rawID: String
+    let title: String
+    var id: String { "\(kind.rawValue):\(rawID)" }
+}
+
+/// 编辑已有的纪念日。
+///
+/// 服务端的 UPDATE 是全量覆盖（不改的列会被写空），所以这里按原始记录回写，
+/// 只把用户真正改过的字段换掉。
+private struct QiansiEditAnniversarySheet: View {
+
+    @Environment(\.dismiss) private var dismiss
+
+    let store: QiansiModel
+    let original: QiansiAnniversary
+
+    @State private var title: String
+    @State private var date: Date
+    @State private var personID: String?
+    @State private var isLunar: Bool
+    @State private var repeatYearly: Bool
+    @State private var remindDays: Set<Int>
+    @State private var isSaving = false
+    @State private var error: String?
+
+    init(store: QiansiModel, original: QiansiAnniversary) {
+        self.store = store
+        self.original = original
+        _title = State(initialValue: original.title)
+        _date = State(initialValue: QiansiLocalDate.parse(original.date) ?? .now)
+        _personID = State(initialValue: original.personId)
+        _isLunar = State(initialValue: original.isLunar ?? false)
+        _repeatYearly = State(initialValue: original.repeatYearly ?? true)
+        _remindDays = State(initialValue: Set(
+            (original.remindDays ?? "")
+                .split(separator: ",")
+                .compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
+        ))
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("标题（如：妈妈生日）", text: $title)
+                    DatePicker("日期", selection: $date, displayedComponents: .date)
+                    Picker("关联联系人", selection: $personID) {
+                        Text("不关联").tag(nil as String?)
+                        ForEach(store.snapshot?.people ?? []) { person in
+                            Text(person.name).tag(person.id as String?)
+                        }
+                    }
+                    Toggle("农历", isOn: $isLunar)
+                    Toggle("每年重复", isOn: $repeatYearly)
+                } header: {
+                    Text("纪念日")
+                }
+
+                Section {
+                    HStack(spacing: 7) {
+                        ForEach([0, 1, 3, 7], id: \.self) { day in
+                            Button {
+                                if remindDays.contains(day) {
+                                    remindDays.remove(day)
+                                } else {
+                                    remindDays.insert(day)
+                                }
+                            } label: {
+                                Text(day == 0 ? "当天" : "\(day) 天前")
+                                    .font(.caption.weight(.medium))
+                                    .padding(.horizontal, 9)
+                                    .padding(.vertical, 5)
+                                    .foregroundStyle(remindDays.contains(day) ? Color.white : Color.secondary)
+                                    .background(
+                                        remindDays.contains(day) ? Color.accentColor : Color.secondary.opacity(0.12),
+                                        in: Capsule()
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                } header: {
+                    Text("提前提醒")
+                } footer: {
+                    Text("按应用设置里的全局时刻投递本地通知。")
+                }
+
+                if let error {
+                    Section {
+                        Text(error).font(.caption).foregroundStyle(.red)
+                    }
+                }
+            }
+            .navigationTitle("编辑纪念日")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(isSaving ? "保存中…" : "保存") {
+                        Task { await save() }
+                    }
+                    .disabled(isSaving || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .interactiveDismissDisabled(isSaving)
+        }
+    }
+
+    private func save() async {
+        isSaving = true
+        error = nil
+        let ok = await store.updateAnniversary(
+            original,
+            title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+            date: date,
+            personID: personID,
+            isLunar: isLunar,
+            repeatYearly: repeatYearly,
+            remindDays: remindDays.sorted()
+        )
+        isSaving = false
+        if ok {
+            dismiss()
+        } else {
+            error = store.error ?? "保存失败"
+        }
+    }
+}
+
+private struct QiansiEventSheet: View {
     @Environment(\.dismiss) private var dismiss
     let store: QiansiModel
 

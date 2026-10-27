@@ -97,6 +97,40 @@ struct QiansiClient: Sendable {
         return try await post("/events", body: body)
     }
 
+    /// 改纪念日。服务端的 UPDATE 是全量覆盖，不带的列会被写空，
+    /// 所以调用方必须把原值一起带回来，只改想改的字段。
+    func updateAnniversary(
+        id: String,
+        title: String,
+        date: String,
+        personID: String?,
+        isLunar: Bool,
+        repeatYearly: Bool,
+        remindDays: [Int]
+    ) async throws -> QiansiAnniversary {
+        let body = try JSONEncoder().encode(
+            AnniversaryBody(
+                person_id: personID,
+                title: title,
+                date: date,
+                is_lunar: isLunar,
+                repeat_yearly: repeatYearly,
+                remind_days: remindDays.sorted().map(String.init).joined(separator: ",")
+            )
+        )
+        return try await put("/anniversaries/\(id)", body: body)
+    }
+
+    /// 归档纪念日（服务端是软删除，置 deleted_at）。
+    func archiveAnniversary(id: String) async throws {
+        try await http.send("/anniversaries/\(id)", method: "DELETE")
+    }
+
+    /// 归档约会。
+    func archiveEvent(id: String) async throws {
+        try await http.send("/events/\(id)", method: "DELETE")
+    }
+
     private struct AnniversaryBody: Encodable {
         let person_id: String?
         let title: String
@@ -124,6 +158,15 @@ struct QiansiClient: Sendable {
 
     private func post<T: Decodable>(_ path: String, body: Data) async throws -> T {
         let data = try await http.data(path, method: "POST", body: body)
+        do {
+            return try JSONDecoder().decode(T.self, from: data)
+        } catch {
+            throw IntegrationAPIError.decoding("牵丝 \(path)：\(error.localizedDescription)")
+        }
+    }
+
+    private func put<T: Decodable>(_ path: String, body: Data) async throws -> T {
+        let data = try await http.data(path, method: "PUT", body: body)
         do {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {

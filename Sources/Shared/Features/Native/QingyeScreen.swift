@@ -15,6 +15,10 @@ struct QingyeScreen: View {
     @State private var showCredential = false
     /// 点通知进来时要定位到的分组（「今天」「明天」…）。
     @State private var focusSection: String?
+    @State private var showAddPlant = false
+    @State private var guideTarget: GuideTarget?
+    @State private var isWorking = false
+    @State private var actionError: String?
 
     init(
         service: ServiceDefinition,
@@ -80,6 +84,14 @@ struct QingyeScreen: View {
         #endif
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showAddPlant = true
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel("添加植物")
+            }
+            ToolbarItem(placement: .primaryAction) {
                 IntegrationScreenMenu(service: service, definition: definition) {
                     Task { await store.refresh() }
                 }
@@ -104,6 +116,28 @@ struct QingyeScreen: View {
         }
         .sheet(isPresented: $showCredential) {
             CredentialSheet(definition: definition, service: service)
+        }
+        .sheet(isPresented: $showAddPlant) {
+            QingyeAddPlantSheet(rooms: store.rooms) { draft in
+                await createPlant(draft)
+            }
+        }
+        .sheet(item: $guideTarget) { target in
+            QingyeCareGuideSheet(plantID: target.plantID, plantName: target.name, baseURL: baseURL)
+        }
+    }
+
+    private func createPlant(_ draft: QingyePlantDraft) async {
+        isWorking = true
+        actionError = nil
+        defer { isWorking = false }
+        do {
+            let plant = try await QingyeClient(baseURL: baseURL).createPlant(draft)
+            actionError = nil
+            await store.refresh()
+            store.expandedPlantID = plant.id
+        } catch {
+            actionError = (error as? IntegrationAPIError)?.userMessage ?? error.localizedDescription
         }
     }
 
@@ -254,6 +288,9 @@ struct QingyeScreen: View {
                         },
                         onCare: { type, title in
                             Task { await store.recordCare(plant: plant, type: type, title: title) }
+                        },
+                        onGuide: {
+                            guideTarget = GuideTarget(plantID: plant.id, name: plant.name)
                         }
                     )
                 }
@@ -352,6 +389,7 @@ private struct QingyePlantRow: View {
     let busy: Bool
     let onToggle: () -> Void
     let onCare: (String, String) -> Void
+    let onGuide: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -393,6 +431,16 @@ private struct QingyePlantRow: View {
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
+                    if let acquired = plant.acquiredDate {
+                        Label("入手于 " + acquired.formatted(.dateTime.year().month().day()), systemImage: "calendar")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let note = plant.note, !note.isEmpty {
+                        Text(note)
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
                     if !tasks.isEmpty {
                         Text("待办：" + tasks.map(\.title).joined(separator: "、"))
                             .font(.caption2)
@@ -411,6 +459,9 @@ private struct QingyePlantRow: View {
                         Button("施肥") { onCare("fertilize", "施肥") }
                             .buttonStyle(.bordered)
                             .controlSize(.small)
+                        Button("养护指南") { onGuide() }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
                     }
                 }
                 .padding(.leading, 32)
@@ -418,6 +469,183 @@ private struct QingyePlantRow: View {
             }
         }
         .padding(.vertical, 2)
+    }
+}
+
+/// 要看养护指南的植物。
+struct GuideTarget: Identifiable {
+    let plantID: Int
+    let name: String
+    var id: Int { plantID }
+}
+
+/// 新建植物。
+private struct QingyeAddPlantSheet: View {
+
+    @Environment(\.dismiss) private var dismiss
+
+    let rooms: [QingyeRoom]
+    let onSubmit: (QingyePlantDraft) async -> Void
+
+    @State private var name = ""
+    @State private var species = ""
+    @State private var roomID = 0
+    @State private var location = ""
+    @State private var light = ""
+    @State private var note = ""
+    @State private var acquired = Date()
+    @State private var hasAcquiredDate = false
+    @State private var isSaving = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("植物") {
+                    TextField("名字", text: $name)
+                        .accessibilityIdentifier("qingye.plantName")
+                    TextField("品种（可留空）", text: $species)
+                    Picker("房间", selection: $roomID) {
+                        Text("未分房").tag(0)
+                        ForEach(rooms) { room in
+                            Text(room.name).tag(room.id)
+                        }
+                    }
+                }
+
+                Section("养护条件") {
+                    TextField("位置（可留空）", text: $location)
+                    TextField("光照需求（可留空）", text: $light)
+                    Toggle("记下入手日期", isOn: $hasAcquiredDate)
+                    if hasAcquiredDate {
+                        DatePicker("入手日期", selection: $acquired, displayedComponents: .date)
+                    }
+                }
+
+                Section("备注") {
+                    TextField("备注（可留空）", text: $note, axis: .vertical)
+                        .lineLimit(2...5)
+                }
+            }
+            .navigationTitle("添加植物")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("添加") {
+                        let draft = QingyePlantDraft(
+                            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+                            species: species.trimmingCharacters(in: .whitespacesAndNewlines),
+                            roomID: roomID,
+                            note: note.trimmingCharacters(in: .whitespacesAndNewlines),
+                            location: location.trimmingCharacters(in: .whitespacesAndNewlines),
+                            lightRequirement: light.trimmingCharacters(in: .whitespacesAndNewlines),
+                            acquiredDate: hasAcquiredDate ? Self.dayString(acquired) : ""
+                        )
+                        isSaving = true
+                        Task {
+                            await onSubmit(draft)
+                            isSaving = false
+                            dismiss()
+                        }
+                    }
+                    .disabled(isSaving || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+    }
+
+    private static func dayString(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
+}
+
+/// 植物库的养护说明。
+private struct QingyeCareGuideSheet: View {
+
+    @Environment(\.dismiss) private var dismiss
+
+    let plantID: Int
+    let plantName: String
+    let baseURL: URL
+
+    @State private var guide: QingyeCareGuide?
+    @State private var isLoading = true
+    @State private var error: String?
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if isLoading {
+                    ProgressView("正在查植物库…")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if let error {
+                    LoadFailureView(title: "养护指南读不出来", detail: error) {
+                        Task { await loadGuide() }
+                    }
+                } else if let guide {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 10) {
+                            if let name = guide.name, !name.isEmpty {
+                                Text(name).font(.headline)
+                            }
+                            if let alias = guide.alias, !alias.isEmpty {
+                                Text(alias)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if let text = guide.guide, !text.isEmpty {
+                                Text(text)
+                                    .font(.callout)
+                                    .textSelection(.enabled)
+                            }
+                            if let link = guide.link, !link.isEmpty, let url = URL(string: link) {
+                                Link("查看来源", destination: url)
+                                    .font(.caption)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(16)
+                    }
+                } else {
+                    ContentUnavailableView(
+                        "植物库里还没有它",
+                        systemImage: "leaf",
+                        description: Text("「\(plantName)」还没匹配到养护说明。")
+                    )
+                }
+            }
+            .navigationTitle("养护指南")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("关闭") { dismiss() }
+                }
+            }
+        }
+        .task {
+            await loadGuide()
+        }
+    }
+
+    private func loadGuide() async {
+        isLoading = true
+        error = nil
+        do {
+            guide = try await QingyeClient(baseURL: baseURL).careGuide(plantID: plantID)
+        } catch {
+            self.error = (error as? IntegrationAPIError)?.userMessage ?? error.localizedDescription
+        }
+        isLoading = false
     }
 }
 

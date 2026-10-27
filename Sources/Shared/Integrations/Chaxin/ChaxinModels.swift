@@ -49,6 +49,15 @@ struct ChaxinSnapshot: Codable, Sendable {
     var notifications: [ChaxinNotification]
 }
 
+/// 添加仓库的返回值：只回一个规范名。
+struct ChaxinAddedRepo: Codable, Sendable {
+    var fullName: String
+
+    enum CodingKeys: String, CodingKey {
+        case fullName = "full_name"
+    }
+}
+
 enum ChaxinDate {
 
     nonisolated(unsafe) private static let fractional: ISO8601DateFormatter = {

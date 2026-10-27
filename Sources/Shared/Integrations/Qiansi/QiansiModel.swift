@@ -154,6 +154,66 @@ final class QiansiModel {
         }
     }
 
+    /// 改纪念日。服务端是全量覆盖，未改动的字段按原值一起带回去。
+    func updateAnniversary(
+        _ original: QiansiAnniversary,
+        title: String,
+        date: Date,
+        personID: String?,
+        isLunar: Bool,
+        repeatYearly: Bool,
+        remindDays: [Int]
+    ) async -> Bool {
+        do {
+            _ = try await client.updateAnniversary(
+                id: original.id,
+                title: title,
+                date: QiansiLocalDate.dayString(date),
+                personID: personID,
+                isLunar: isLunar,
+                repeatYearly: repeatYearly,
+                remindDays: remindDays
+            )
+            await refresh()
+            return true
+        } catch {
+            self.error = (error as? IntegrationAPIError)?.userMessage ?? error.localizedDescription
+            center.reportError(error, for: "qiansi")
+            return false
+        }
+    }
+
+    /// 归档纪念日。
+    func archiveAnniversary(id: String) async -> Bool {
+        do {
+            try await client.archiveAnniversary(id: id)
+            await refresh()
+            return true
+        } catch {
+            self.error = (error as? IntegrationAPIError)?.userMessage ?? error.localizedDescription
+            center.reportError(error, for: "qiansi")
+            return false
+        }
+    }
+
+    /// 归档约会。
+    func archiveEvent(id: String) async -> Bool {
+        do {
+            try await client.archiveEvent(id: id)
+            await refresh()
+            return true
+        } catch {
+            self.error = (error as? IntegrationAPIError)?.userMessage ?? error.localizedDescription
+            center.reportError(error, for: "qiansi")
+            return false
+        }
+    }
+
+    /// 按 id 找原始纪念日（编辑时要按原始记录回写）。
+    func anniversary(id: String) -> QiansiAnniversary? {
+        snapshot?.anniversaries.first { $0.id == id }
+    }
+
     func createEvent(
         title: String,
         date: Date,

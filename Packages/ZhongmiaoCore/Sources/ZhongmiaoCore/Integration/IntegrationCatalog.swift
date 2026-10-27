@@ -152,10 +152,12 @@ public enum IntegrationCatalog {
                 IntegrationCapability("约会与往来"),
                 IntegrationCapability("新建纪念日", isWrite: true),
                 IntegrationCapability("新建约会", isWrite: true),
+                IntegrationCapability("编辑纪念日", isWrite: true),
+                IntegrationCapability("归档纪念日与约会", isWrite: true),
                 IntegrationCapability("完成提醒", isWrite: true)
             ],
             summary: "联系人、生日与约会提醒",
-            webOnlyNote: "关系图谱、批量编辑、vCard 导入、完整人物/事件编辑仍在网页版。",
+            webOnlyNote: "关系图谱、批量编辑、vCard 导入、约会编辑与往来金额挂账仍在网页版。",
             supportsReminders: true
         ),
         IntegrationDefinition(
@@ -169,10 +171,11 @@ public enum IntegrationCatalog {
                 IntegrationCapability("养护任务"),
                 IntegrationCapability("养护记录"),
                 IntegrationCapability("完成/推迟任务", isWrite: true),
-                IntegrationCapability("记录浇水施肥", isWrite: true)
+                IntegrationCapability("记录浇水施肥", isWrite: true),
+                IntegrationCapability("新建植物", isWrite: true)
             ],
             summary: "植物养护待办与提醒",
-            webOnlyNote: "植物档案、照片、图库、植物库、导入、天气、房间管理仍在网页版。",
+            webOnlyNote: "照片、图库、植物库导入、天气、房间管理仍在网页版。",
             supportsReminders: true
         ),
         IntegrationDefinition(
@@ -299,10 +302,13 @@ public enum IntegrationCatalog {
             capabilities: [
                 IntegrationCapability("仓库列表"),
                 IntegrationCapability("Release 通知"),
-                IntegrationCapability("未读/失败计数")
+                IntegrationCapability("未读/失败计数"),
+                IntegrationCapability("添加监控仓库", isWrite: true),
+                IntegrationCapability("立即检查全部仓库", isWrite: true),
+                IntegrationCapability("重发失败通知", isWrite: true)
             ],
             summary: "版本发布动态",
-            webOnlyNote: "仓库管理、监控设置、同步仍在网页版。",
+            webOnlyNote: "仓库删除、监控设置与 GitHub Token 仍在网页版。",
             supportsReminders: false
         ),
         IntegrationDefinition(

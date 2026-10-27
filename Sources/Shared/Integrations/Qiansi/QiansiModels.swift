@@ -182,4 +182,10 @@ struct QiansiAgendaItem: Identifiable, Hashable, Sendable {
     var reminderID: String?
     var personID: String?
     var daysUntil: Int?
+
+    /// 去掉 `kind:` 前缀的原始 id（后端主键）。
+    var rawID: String {
+        guard let separator = id.firstIndex(of: ":") else { return id }
+        return String(id[id.index(after: separator)...])
+    }
 }

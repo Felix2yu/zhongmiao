@@ -375,7 +375,7 @@ struct ServiceConfigView: View {
 
             if let resolvedURL {
                 NavigationLink {
-                    NativeServiceScreen(service: service)
+                    NativeServiceScreen(service: service, target: nil)
                 } label: {
                     Label("打开原生页", systemImage: "rectangle.on.rectangle")
                 }

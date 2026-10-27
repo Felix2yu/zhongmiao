@@ -11,6 +11,10 @@ struct ChaxinScreen: View {
 
     @State private var store: IntegrationSnapshotModel<ChaxinSnapshot>
     @State private var browserTarget: BrowserTarget?
+    @State private var showAddRepo = false
+    @State private var isWorking = false
+    @State private var actionError: String?
+    @State private var actionNote: String?
 
     init(
         service: ServiceDefinition,
@@ -44,6 +48,27 @@ struct ChaxinScreen: View {
                     .listRowInsets(EdgeInsets(top: 8, leading: 14, bottom: 8, trailing: 14))
             }
 
+            if isWorking {
+                Section {
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.small)
+                        Text("正在处理…").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            } else if let actionError {
+                Section {
+                    Text(actionError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            } else if let actionNote {
+                Section {
+                    Text(actionNote)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             if let error = store.error {
                 Section {
                     IntegrationStatusBanner(
@@ -67,6 +92,15 @@ struct ChaxinScreen: View {
                                 Spacer()
                                 if notification.status == "failed" {
                                     CapsuleTag(text: "发送失败", tint: .red)
+                                    Button {
+                                        Task { await retry(notification) }
+                                    } label: {
+                                        Text("重发")
+                                            .font(.caption2.weight(.medium))
+                                    }
+                                    .buttonStyle(.plain)
+                                    .foregroundStyle(.tint)
+                                    .disabled(isWorking)
                                 }
                             }
                             HStack(alignment: .firstTextBaseline) {
@@ -147,6 +181,25 @@ struct ChaxinScreen: View {
         #endif
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    Button {
+                        showAddRepo = true
+                    } label: {
+                        Label("添加监控仓库", systemImage: "plus")
+                    }
+
+                    Button {
+                        Task { await runMonitor() }
+                    } label: {
+                        Label("立即检查全部仓库", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                    .disabled(isWorking)
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .accessibilityLabel("更多操作")
+            }
+            ToolbarItem(placement: .primaryAction) {
                 IntegrationScreenMenu(service: service, definition: definition) {
                     Task { await store.refresh() }
                 }
@@ -163,6 +216,11 @@ struct ChaxinScreen: View {
             if online { Task { await store.refresh() } }
         }
         .inAppBrowser($browserTarget)
+        .sheet(isPresented: $showAddRepo) {
+            ChaxinAddRepoSheet { name in
+                await addRepo(name)
+            }
+        }
     }
 
     private var metrics: some View {
@@ -196,5 +254,105 @@ struct ChaxinScreen: View {
         if let stars = repo.stargazersCount { parts.append("★ \(stars)") }
         if let tag = repo.latestTag, !tag.isEmpty { parts.append(tag) }
         return parts.isEmpty ? "—" : parts.joined(separator: " · ")
+    }
+
+    private func addRepo(_ fullName: String) async {
+        let trimmed = fullName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        isWorking = true
+        actionError = nil
+        actionNote = nil
+        defer { isWorking = false }
+        do {
+            let added = try await ChaxinClient(baseURL: baseURL).addRepo(fullName: trimmed)
+            actionNote = "已添加 \(added.fullName)"
+            await store.refresh()
+        } catch {
+            actionError = (error as? IntegrationAPIError)?.userMessage ?? error.localizedDescription
+        }
+    }
+
+    private func runMonitor() async {
+        isWorking = true
+        actionError = nil
+        actionNote = nil
+        defer { isWorking = false }
+        do {
+            try await ChaxinClient(baseURL: baseURL).runMonitor()
+            actionNote = "检查完成"
+            await store.refresh()
+        } catch {
+            actionError = (error as? IntegrationAPIError)?.userMessage ?? error.localizedDescription
+        }
+    }
+
+    private func retry(_ notification: ChaxinNotification) async {
+        isWorking = true
+        actionError = nil
+        actionNote = nil
+        defer { isWorking = false }
+        do {
+            try await ChaxinClient(baseURL: baseURL).retryNotification(id: notification.id)
+            actionNote = "已重新发送"
+            await store.refresh()
+        } catch {
+            actionError = (error as? IntegrationAPIError)?.userMessage ?? error.localizedDescription
+        }
+    }
+}
+
+/// 添加监控仓库：后端要拿 owner/repo 去 GitHub 查一次，格式错了会直接报错。
+private struct ChaxinAddRepoSheet: View {
+
+    @Environment(\.dismiss) private var dismiss
+
+    let onSubmit: (String) async -> Void
+
+    @State private var name = ""
+    @State private var isSaving = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    #if os(iOS)
+                    TextField("owner/repo", text: $name)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .font(.body.monospaced())
+                        .accessibilityIdentifier("chaxin.repoName")
+                    #else
+                    TextField("owner/repo", text: $name)
+                        .font(.body.monospaced())
+                        .accessibilityIdentifier("chaxin.repoName")
+                    #endif
+                } header: {
+                    Text("仓库")
+                } footer: {
+                    Text("填 GitHub 仓库的 owner/repo，例如 Felix2yu/zhongmiao。服务端需要已配置 GitHub token，否则无法确认仓库信息。")
+                }
+            }
+            .navigationTitle("添加监控仓库")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("添加") {
+                        let value = name
+                        isSaving = true
+                        Task {
+                            await onSubmit(value)
+                            isSaving = false
+                            dismiss()
+                        }
+                    }
+                    .disabled(isSaving || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
     }
 }
