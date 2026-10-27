@@ -120,7 +120,7 @@ for h in shenshi mujian bili liuxia tuqie huozhi diarum qingye chaxin qiansi yue
 done
 ```
 
-也可以直接在 App 的「体检」页点「全部检测」，它会对每个服务发一次 GET，
+也可以直接在 App 的「设置 → 诊断」页点「全部检测」，它会对每个服务发一次 GET，
 并把失败原因分成「解析失败 / 连接失败 / 证书 / ATS 拦截」四类——比看 Nginx 日志快。
 
 ## 六、常见坑
@@ -143,7 +143,7 @@ done
 swift run --package-path Packages/ZhongmiaoCore zm-catalog > deploy/catalog.json
 python3 deploy/nginx/gen_nginx.py --domain example.com
 docker exec nginx nginx -t && docker exec nginx nginx -s reload
-# 3) App 里「体检 → 全部检测」确认可达
+# 3) App 里「设置 → 诊断 → 全部检测」确认可达
 ```
 
 `gen_nginx.py --check` 会先查子域名冲突，冲突时直接报错退出，不会写出半份配置。

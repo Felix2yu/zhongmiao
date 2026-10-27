@@ -284,13 +284,24 @@ final class AppModel {
         return url(for: service)
     }
 
+    /// ntfy 的服务器地址。
+    ///
+    /// ntfy 本身也是一个服务，地址覆盖统一写在「服务与接入 → ntfy」里，
+    /// 与主题浏览、通知同步共用同一份配置。旧版本把这一项单独存在
+    /// `ntfyBaseURLOverride`（「ntfy 主题」页里那个输入框），仍作为回落读取一次，
+    /// 避免升级后已填的地址失效。
     func resolvedNtfyBase() -> URL? {
-        let override = settings.ntfyBaseURLOverride.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !override.isEmpty {
-            let normalized = override.contains("://") ? override : "https://" + override
+        guard let service = ServiceCatalog.service(id: "ntfy") else { return nil }
+        let serviceOverride = settings.preference(for: service).urlOverride?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !serviceOverride.isEmpty {
+            return url(for: service)
+        }
+        let legacy = settings.ntfyBaseURLOverride.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !legacy.isEmpty {
+            let normalized = legacy.contains("://") ? legacy : "https://" + legacy
             return URL(string: normalized)
         }
-        guard let service = ServiceCatalog.service(id: "ntfy") else { return nil }
         return url(for: service)
     }
 
@@ -617,7 +628,7 @@ final class AppModel {
         updateSettings { $0.update(serviceID) { $0.isPinned = pinned } }
     }
 
-    /// 隐藏：只影响首页卡片是否出现，服务仍在「逐服务配置」里，通知同步照旧。
+    /// 隐藏：只影响首页卡片是否出现，服务仍在「设置 → 服务与接入」里，通知同步照旧。
     func setHidden(_ hidden: Bool, for serviceID: String) {
         updateSettings { $0.update(serviceID) { $0.isHidden = hidden } }
     }

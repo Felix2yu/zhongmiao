@@ -15,7 +15,7 @@ struct ServicePreference: Codable, Hashable, Sendable {
     /// 是否在首页置顶（排在所属分类最前）。
     var isPinned: Bool
     /// 是否在首页隐藏。只影响首页卡片，不改动通知同步与地址解析；
-    /// 「设置 → 服务 → 逐服务配置」里始终可见，那是恢复入口。
+    /// 「设置 → 服务与接入」里始终可见，那是恢复入口。
     var isHidden: Bool
 
     private enum CodingKeys: String, CodingKey {

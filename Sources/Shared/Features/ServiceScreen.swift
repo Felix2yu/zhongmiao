@@ -95,7 +95,7 @@ struct ServiceScreen: View {
             switch sheet {
             case .settings:
                 NavigationStack {
-                    ServiceEditorView(service: service)
+                    ServiceConfigView(service: service, showsDoneButton: true)
                 }
             case .ntfyTopics:
                 NavigationStack {

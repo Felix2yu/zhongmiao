@@ -17,10 +17,10 @@ PWA 在 iOS 上最弱的事情上补强；对有稳定 HTTP API 的应用，再�
 │ SwiftUI 界面层                                            │
 │   CatalogView / ServiceScreen / NotificationsView        │
 │   NativeServiceScreen + 12 个 *Screen                     │
-│   DiagnosticsView / SettingsView / IntegrationSettings   │
+│   DiagnosticsView / SettingsView / ServiceConfigView      │
 ├──────────────────────────────────────────────────────────┤
 │ AppModel（@MainActor，唯一状态中枢）                        │
-│   设置 · 快照 · 体检 · 深链 · 推送令牌 · 日志               │
+│   设置 · 快照 · 连通性探测 · 深链 · 推送令牌 · 日志          │
 ├───────────────────────────┬──────────────────────────────┤
 │ NotificationEngine(actor) │ WebAppModel / WebCoordinator  │
 │   拉取 → 去重 → 入库 → 投递 │   WKWebView 生命周期与导航策略   │

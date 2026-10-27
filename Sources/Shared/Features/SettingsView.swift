@@ -29,24 +29,26 @@ struct SettingsView: View {
             } header: {
                 Text("接入方式")
             } footer: {
-                Text(model.settings.addressing.mode.hint + " 修改后所有服务地址立即重算，可到「体检」页一键验证；个别服务也可在「逐服务配置」里单独覆盖。")
+                Text(model.settings.addressing.mode.hint + " 这里是所有服务共用的部分；单个服务和全局不一致时，到「服务与接入」里覆盖。修改后所有服务地址立即重算。")
             }
 
             Section {
                 NavigationLink {
-                    IntegrationSettingsView()
+                    ServiceSettingsListView()
                 } label: {
                     LabeledContent {
-                        Text("\(connectedCount)/\(IntegrationCatalog.integrated.count) 已连接")
+                        Text("\(configuredCount)/\(ServiceCatalog.all.count) 可访问")
                             .foregroundStyle(.secondary)
                     } label: {
-                        Label("应用接入", systemImage: "key")
+                        Label("服务与接入", systemImage: "square.grid.2x2")
                     }
                 }
+
+                Toggle("显示服务能力标签", isOn: $model.settings.showServiceCapabilityTags)
             } header: {
-                Text("应用接入")
+                Text("服务")
             } footer: {
-                Text("有 API 的应用优先使用原生界面；高级、低频操作仍可跳到网页版。凭据保存在系统钥匙串，网页版登录态不受影响。")
+                Text("点进任一服务即可配置它的地址覆盖、鉴权凭据、通知通道、本地提醒与首页显示——一个服务一页。关掉上面的开关后，应用卡片不再显示「离线可用」这类能力标签，只保留「未配置」等真正需要处理的提示。")
             }
 
             Section {
@@ -76,7 +78,7 @@ struct SettingsView: View {
             } header: {
                 Text("通知")
             } footer: {
-                Text("通知走三条通道：页面内提醒直接桥接为系统通知；ntfy 主题与各应用的通知流由后台刷新拉取；配置中继后还可接收 APNs 推送并补齐漏收事件。")
+                Text("通知走三条通道：页面内提醒直接桥接为系统通知；ntfy 主题与各应用的通知流由后台刷新拉取；配置中继后还可接收 APNs 推送并补齐漏收事件。各服务用哪条通道在它自己的配置页里选。")
             }
 
             Section {
@@ -92,7 +94,7 @@ struct SettingsView: View {
             } header: {
                 Text("ntfy 订阅")
             } footer: {
-                Text("列出服务器上已有消息的主题，点一下即订阅。不依赖 ntfy 网页版——它在嵌入众妙时固定顶栏可能被系统导航栏压住。")
+                Text("列出服务器上已有消息的主题，点一下即订阅。ntfy 的服务器地址与访问令牌在「服务与接入 → ntfy」里，不在这里重复填写。")
             }
 
             Section {
@@ -109,11 +111,11 @@ struct SettingsView: View {
                     }
                     #endif
 
-                    SecretField(
-                        title: "幕间访问令牌",
-                        key: .mujian,
-                        footer: "保存在系统钥匙串；服务端免鉴权时留空。"
-                    )
+                    if model.mujianToken.isEmpty {
+                        Text("幕间访问令牌尚未填写：到「服务与接入 → 幕间」配置一次，演出提醒会直接复用该凭据。")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
 
                     Toggle("从幕间拉取", isOn: $model.settings.showsUseMujianAPI)
 
@@ -185,22 +187,24 @@ struct SettingsView: View {
             } header: {
                 Text("推送中继（可选）")
             } footer: {
-                Text("中继服务见仓库 server/push-relay。不配置也能用：页面内通知与后台拉取不需要它，只是没有「应用被杀死时立即送达」的能力。")
+                Text("中继不属于任何单个应用，所以留在这里。服务见仓库 server/push-relay。不配置也能用：页面内通知与后台拉取不需要它，只是没有「应用被杀死时立即送达」的能力。")
             }
 
             Section {
                 NavigationLink {
-                    ServiceSettingsListView()
+                    DiagnosticsView()
                 } label: {
-                    Label("逐服务配置", systemImage: "slider.horizontal.3")
+                    LabeledContent {
+                        Text(model.network.isOnline ? "在线" : "离线")
+                            .foregroundStyle(.secondary)
+                    } label: {
+                        Label("诊断与日志", systemImage: "stethoscope")
+                    }
                 }
-                LabeledContent("服务数量", value: "\(ServiceCatalog.all.count) 个")
-
-                Toggle("显示服务能力标签", isOn: $model.settings.showServiceCapabilityTags)
             } header: {
-                Text("服务")
+                Text("诊断")
             } footer: {
-                Text("关掉后，应用卡片不再显示「离线可用」这类能力标签，只保留「未配置」等真正需要处理的提示。被设为「在首页隐藏」的应用不会出现在首页，但仍留在上面的逐服务配置里（带划掉的眼睛标记），点进去即可恢复。")
+                Text("批量检测全部服务的连通性、查看原生接入状态与运行日志。单个服务的检测在它自己的配置页里，不必来回跳。")
             }
 
             Section {
@@ -264,10 +268,8 @@ struct SettingsView: View {
         return "\(version) (\(build))"
     }
 
-    private var connectedCount: Int {
-        IntegrationCatalog.integrated.filter { definition in
-            model.integrations.state(for: definition.serviceID).isUsable
-        }.count
+    private var configuredCount: Int {
+        ServiceCatalog.all.filter { model.url(for: $0) != nil }.count
     }
 
     // MARK: 演出提醒
@@ -299,60 +301,9 @@ struct SettingsView: View {
 
     static var showFooter: String {
         #if os(iOS)
-        "演出时间取自幕间，也会读系统日历里「幕间」同步过去的事件。提醒走本地通知，App 被杀也照常到点。灵动岛最多常驻 8 小时，而 iOS 不允许 App 在精确时刻自己启动，所以要建两个快捷指令自动化（每天 10:00、15:00）跑「开启演出盯场」；演出前打开众妙也会自动开岛。"
+        "演出时间取自幕间，也会读系统日历里「幕间」同步过去的事件。提醒走本地通知，App 被杀也照常到点。灵动岛最多常驻 8 小时，而 iOS 不允许 App 在精确时刻自己启动，所以要建两个快捷指令自动化（每天 10:00、15:00）跑「开启演出盯场」；演出前打开众妙也会自动开岛。幕间访问令牌在「服务与接入 → 幕间」里填写，这里读的就是那一份。"
         #else
-        "演出时间取自幕间，也会读系统日历里「幕间」同步过去的事件。提醒走本地通知，即便 App 已退出也照常到点。"
+        "演出时间取自幕间，也会读系统日历里「幕间」同步过去的事件。提醒走本地通知，即便 App 已退出也照常到点。幕间访问令牌在「服务与接入 → 幕间」里填写，这里读的就是那一份。"
         #endif
-    }
-}
-
-struct ServiceSettingsListView: View {
-
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        List {
-            ForEach(ServiceCatalog.grouped, id: \.category) { group in
-                Section(group.category.title) {
-                    ForEach(group.services) { service in
-                        NavigationLink {
-                            ServiceEditorView(service: service)
-                        } label: {
-                            HStack(spacing: 10) {
-                                ServiceGlyph(service: service, size: 30)
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(service.name)
-                                        .font(.subheadline)
-                                    Text(model.url(for: service)?.absoluteString ?? "未配置地址")
-                                        .font(.caption2.monospaced())
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                }
-                                Spacer(minLength: 4)
-                                let preference = model.settings.preference(for: service)
-                                if preference.isPinned {
-                                    Image(systemName: "pin.fill")
-                                        .font(.caption2)
-                                        .foregroundStyle(.tertiary)
-                                        .accessibilityLabel("已置顶")
-                                }
-                                if preference.isHidden {
-                                    Image(systemName: "eye.slash")
-                                        .font(.caption2)
-                                        .foregroundStyle(.tertiary)
-                                        .accessibilityLabel("首页已隐藏")
-                                }
-                                if preference.notificationsEnabled {
-                                    Image(systemName: "bell.fill")
-                                        .font(.caption2)
-                                        .foregroundStyle(.tertiary)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        .navigationTitle("服务")
     }
 }

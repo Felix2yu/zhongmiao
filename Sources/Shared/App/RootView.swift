@@ -4,7 +4,7 @@ import ZhongmiaoCore
 struct RootView: View {
 
     enum Tab: Hashable {
-        case catalog, inbox, diagnostics, settings
+        case catalog, inbox, settings
     }
 
     @Environment(AppModel.self) private var model
@@ -32,12 +32,6 @@ struct RootView: View {
             .tabItem { Label("通知", systemImage: "bell") }
             .badge(model.snapshot.unreadCount)
             .tag(Tab.inbox)
-
-            NavigationStack {
-                DiagnosticsView()
-            }
-            .tabItem { Label("体检", systemImage: "stethoscope") }
-            .tag(Tab.diagnostics)
 
             NavigationStack {
                 SettingsView()

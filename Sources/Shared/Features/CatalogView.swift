@@ -23,7 +23,7 @@ struct CatalogView: View {
                     ContentUnavailableView {
                         Label("所有应用都已隐藏", systemImage: "eye.slash")
                     } description: {
-                        Text("到「设置 → 服务 → 逐服务配置」里取消隐藏，或在搜索框里直接搜应用名。")
+                        Text("到「设置 → 服务与接入」里取消隐藏，或在搜索框里直接搜应用名。")
                     }
                     .padding(.top, 32)
                 } else if searchHasNoMatch {
@@ -84,7 +84,7 @@ struct CatalogView: View {
         }
         .sheet(item: $editingService) { service in
             NavigationStack {
-                ServiceEditorView(service: service)
+                ServiceConfigView(service: service, showsDoneButton: true)
             }
         }
     }

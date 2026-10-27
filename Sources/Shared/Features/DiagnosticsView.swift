@@ -4,6 +4,7 @@ import ZhongmiaoCore
 struct DiagnosticsView: View {
 
     @Environment(AppModel.self) private var model
+    @State private var editingService: ServiceDefinition?
 
     var body: some View {
         List {
@@ -14,44 +15,23 @@ struct DiagnosticsView: View {
             } header: {
                 Text("服务连通性")
             } footer: {
-                Text("体检会向每个服务的首页发一次 GET 请求。返回 401/403 视为「可达但需要登录」，这对自建应用是正常状态。")
+                Text("诊断会向每个服务的首页发一次 GET 请求。返回 401/403 视为「可达但需要登录」，这对自建应用是正常状态。地址不对时点行尾的「…」直接进该服务的配置页改，不用回设置里翻。")
             }
 
             Section {
                 ForEach(IntegrationCatalog.integrated) { definition in
                     if let service = ServiceCatalog.service(id: definition.serviceID) {
-                        HStack(spacing: 10) {
-                            ServiceGlyph(service: service, size: 28)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(service.name)
-                                    .font(.subheadline)
-                                Text(definition.priority.shortTitle + " · " + definition.authKind.title)
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            let state = model.integrations.state(for: definition.serviceID)
-                            VStack(alignment: .trailing, spacing: 2) {
-                                HStack(spacing: 4) {
-                                    Circle().fill(state.tint).frame(width: 6, height: 6)
-                                    Text(state.title)
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                }
-                                if definition.supportsReminders {
-                                    Text("提醒 \(model.integrations.reminderCounts[definition.serviceID] ?? 0) 条")
-                                        .font(.caption2.monospacedDigit())
-                                        .foregroundStyle(.tertiary)
-                                }
-                            }
+                        NavigationLink {
+                            ServiceConfigView(service: service)
+                        } label: {
+                            integrationRow(definition: definition, service: service)
                         }
-                        .padding(.vertical, 1)
                     }
                 }
             } header: {
                 Text("原生接入")
             } footer: {
-                Text("凭据只在系统钥匙串与本机内存中，日志不记录令牌。提醒数量是当前已排程的本地通知。")
+                Text("凭据只在系统钥匙串与本机内存中，日志不记录令牌。提醒数量是当前已排程的本地通知。点进任一应用可直接改它的凭据与提醒。")
             }
 
             Section("为什么离线有时不生效") {
@@ -102,8 +82,13 @@ struct DiagnosticsView: View {
                 Text("日志只保存在本机内存中，重启后清空。")
             }
         }
-        .navigationTitle("体检")
+        .navigationTitle("诊断")
         .task { await model.integrations.refreshReminderCounts() }
+        .sheet(item: $editingService) { service in
+            NavigationStack {
+                ServiceConfigView(service: service, showsDoneButton: true)
+            }
+        }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -169,6 +154,11 @@ struct DiagnosticsView: View {
                     Label("在浏览器打开", systemImage: "safari")
                 }
                 .disabled(url == nil)
+                Button {
+                    editingService = service
+                } label: {
+                    Label("服务设置", systemImage: "slider.horizontal.3")
+                }
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.footnote)
@@ -178,6 +168,36 @@ struct DiagnosticsView: View {
             .accessibilityLabel("\(service.name) 的操作")
         }
         .padding(.vertical, 2)
+    }
+
+    @ViewBuilder
+    private func integrationRow(definition: IntegrationDefinition, service: ServiceDefinition) -> some View {
+        let state = model.integrations.state(for: definition.serviceID)
+        HStack(spacing: 10) {
+            ServiceGlyph(service: service, size: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(service.name)
+                    .font(.subheadline)
+                Text(definition.priority.shortTitle + " · " + definition.authKind.title)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 4)
+            VStack(alignment: .trailing, spacing: 2) {
+                HStack(spacing: 4) {
+                    Circle().fill(state.tint).frame(width: 6, height: 6)
+                    Text(state.title)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                if definition.supportsReminders {
+                    Text("提醒 \(model.integrations.reminderCounts[definition.serviceID] ?? 0) 条")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.tertiary)
+                }
+            }
+        }
+        .padding(.vertical, 1)
     }
 
     private func bullet(_ text: String, symbol: String) -> some View {

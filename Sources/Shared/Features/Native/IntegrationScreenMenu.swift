@@ -48,12 +48,7 @@ struct IntegrationScreenMenu: View {
             switch sheet {
             case .settings:
                 NavigationStack {
-                    IntegrationDetailView(definition: definition, service: service)
-                        .toolbar {
-                            ToolbarItem(placement: .confirmationAction) {
-                                Button("完成") { self.sheet = nil }
-                            }
-                        }
+                    ServiceConfigView(service: service, showsDoneButton: true)
                 }
             case .web:
                 if let url = model.url(for: service) {

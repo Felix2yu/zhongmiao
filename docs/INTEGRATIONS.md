@@ -46,7 +46,7 @@ SwiftUI
     ├─ HuozhiScreen / QiansiScreen / QingyeScreen      P0，各自 Model
     ├─ MujianScreen … YuexiScreen                      P1，读屏 + 轻写
     └─ BiliHistoryScreen / ChaxinScreen / LiuxiaScreen P2，只读
-  IntegrationSettingsView / SecretField / IntegrationStatusBanner
+  ServiceConfigView / ServiceSettingsListView / SecretField / IntegrationStatusBanner
         │
 IntegrationCenter（@MainActor @Observable，AppModel 持有）
   ├─ SecretStore（Keychain 同步读）
@@ -254,10 +254,12 @@ ZhongmiaoCore（纯 Foundation，可单测）
 
 ## 9. 设置与重授权
 
-- 设置 → **应用接入**：按 P0/P1/P2/网页分组，行内给状态点、鉴权类型、优先级。
-- 详情页：可读/可写清单、凭据表单（`SecretField` 或用户名+密码）、保存并验证、清除凭据、
-  过期时间与最近验证时间、打开原生页/网页版、「优先使用网页版」开关、
-  以及「哪些高级操作仍在网页版」的说明。
+- 设置 → **服务与接入**：唯一入口，按应用分类分组（与首页一致），行内给地址、优先级、
+  凭据状态点、置顶/隐藏/通知标记。不再有按 P0/P1/P2 分组的第二个列表。
+- 单个服务页（`ServiceConfigView`）：地址覆盖、鉴权凭据、可读/可写清单、保存并验证、清除凭据、
+  过期时间与最近验证时间、通知通道、本地提醒、首页显示、打开原生页/网页版、
+  「优先使用网页版」开关，以及「哪些高级操作仍在网页版」的说明。幕间令牌与 ntfy 地址令牌
+  也在这里——它们就是各自服务的凭据，不再有第二个输入框。
 - 原生页在未配置或失效时只挂内联横幅，不锁死页面：下方仍可看缓存、可跳网页版。
 
 ## 10. 验证
