@@ -10,6 +10,7 @@ struct ChaxinScreen: View {
     let definition: IntegrationDefinition
 
     @State private var store: IntegrationSnapshotModel<ChaxinSnapshot>
+    @State private var browserTarget: BrowserTarget?
 
     init(
         service: ServiceDefinition,
@@ -79,8 +80,14 @@ struct ChaxinScreen: View {
                                 }
                             }
                             if let urlString = notification.releaseUrl, let url = URL(string: urlString) {
-                                Link("查看 Release", destination: url)
-                                    .font(.caption)
+                                Button {
+                                    browserTarget = BrowserTarget(url: url)
+                                } label: {
+                                    Label("查看 Release", systemImage: "arrow.up.right.square")
+                                        .font(.caption)
+                                }
+                                .buttonStyle(.plain)
+                                .foregroundStyle(.tint)
                             }
                         }
                         .padding(.vertical, 1)
@@ -155,6 +162,7 @@ struct ChaxinScreen: View {
         .onChange(of: model.network.isOnline) { _, online in
             if online { Task { await store.refresh() } }
         }
+        .inAppBrowser($browserTarget)
     }
 
     private var metrics: some View {

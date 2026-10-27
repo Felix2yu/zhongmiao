@@ -45,10 +45,11 @@ struct SettingsView: View {
                 }
 
                 Toggle("显示服务能力标签", isOn: $model.settings.showServiceCapabilityTags)
+                Toggle("站外链接在应用内打开", isOn: $model.settings.keepExternalLinksInApp)
             } header: {
                 Text("服务")
             } footer: {
-                Text("点进任一服务即可配置它的地址覆盖、鉴权凭据、通知通道、本地提醒与首页显示——一个服务一页。关掉上面的开关后，应用卡片不再显示「离线可用」这类能力标签，只保留「未配置」等真正需要处理的提示。")
+                Text("点进任一服务即可配置它的地址覆盖、鉴权凭据、通知通道、本地提醒与首页显示——一个服务一页。关掉上面的开关后，应用卡片不再显示「离线可用」这类能力标签，只保留「未配置」等真正需要处理的提示。站外链接默认留在应用内加载，想用 Safari 时点页面里的「在浏览器打开」；`tel:`、`mailto:` 这类始终交给系统。")
             }
 
             Section {

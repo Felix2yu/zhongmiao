@@ -80,6 +80,13 @@ struct AppSettings: Codable, Hashable, Sendable {
     /// 默认开启；关掉后卡片只保留「未配置」这类真正需要处理的告警。
     var showServiceCapabilityTags: Bool
 
+    /// 站外链接是否留在应用内打开。
+    ///
+    /// 默认开启：网页里点到外部链接（例如某个项目的官网、第三方文档）仍在应用内加载，
+    /// 想出去用浏览器时走页面右上角/菜单里的「在浏览器打开」。
+    /// `tel:`、`mailto:` 这类非网页协议始终交给系统。
+    var keepExternalLinksInApp: Bool
+
     // MARK: 演出提醒
 
     /// 演出提醒总开关。关掉后不再拉幕间演出、不再排通知、不再开岛。
@@ -109,6 +116,7 @@ struct AppSettings: Codable, Hashable, Sendable {
         lookbackHours: Int = 24,
         inboxCapacity: Int = 500,
         showServiceCapabilityTags: Bool = true,
+        keepExternalLinksInApp: Bool = true,
         showsEnabled: Bool = true,
         showsReminderLeadHours: Int = 4,
         showsIslandLeadHours: Int = 8,
@@ -124,6 +132,7 @@ struct AppSettings: Codable, Hashable, Sendable {
         self.lookbackHours = lookbackHours
         self.inboxCapacity = inboxCapacity
         self.showServiceCapabilityTags = showServiceCapabilityTags
+        self.keepExternalLinksInApp = keepExternalLinksInApp
         self.showsEnabled = showsEnabled
         self.showsReminderLeadHours = showsReminderLeadHours
         self.showsIslandLeadHours = showsIslandLeadHours
@@ -136,6 +145,7 @@ struct AppSettings: Codable, Hashable, Sendable {
         case addressing, servicePreferences, relayURL
         case ntfyBaseURLOverride, backgroundRefreshEnabled, lookbackHours, inboxCapacity
         case showServiceCapabilityTags
+        case keepExternalLinksInApp
         case showsEnabled, showsReminderLeadHours, showsIslandLeadHours
         case showsUseMujianAPI, showsUseCalendar, showsCalendarKeywords
     }
@@ -152,6 +162,7 @@ struct AppSettings: Codable, Hashable, Sendable {
         lookbackHours = try container.decodeIfPresent(Int.self, forKey: .lookbackHours) ?? 24
         inboxCapacity = try container.decodeIfPresent(Int.self, forKey: .inboxCapacity) ?? 500
         showServiceCapabilityTags = try container.decodeIfPresent(Bool.self, forKey: .showServiceCapabilityTags) ?? true
+        keepExternalLinksInApp = try container.decodeIfPresent(Bool.self, forKey: .keepExternalLinksInApp) ?? true
         showsEnabled = try container.decodeIfPresent(Bool.self, forKey: .showsEnabled) ?? true
         showsReminderLeadHours = try container.decodeIfPresent(Int.self, forKey: .showsReminderLeadHours) ?? 4
         showsIslandLeadHours = try container.decodeIfPresent(Int.self, forKey: .showsIslandLeadHours) ?? 8

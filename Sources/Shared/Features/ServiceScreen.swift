@@ -73,6 +73,9 @@ struct ServiceScreen: View {
             }
         }
         .toolbar { toolbarContent }
+        .onChange(of: model.settings.keepExternalLinksInApp) { _, value in
+            web.updatePolicy(keepsExternalLinksInApp: value)
+        }
         .onChange(of: model.network.isOnline) { _, online in
             if online {
                 web.reloadFromOrigin()
@@ -85,6 +88,7 @@ struct ServiceScreen: View {
             web.toast = nil
         }
         .task {
+            web.updatePolicy(keepsExternalLinksInApp: model.settings.keepExternalLinksInApp)
             // 回调先接好再加载首屏，桥事件就不会在装配间隙丢失。
             await web.activate(
                 onNotification: { model.ingest(webNotification: $0) },

@@ -19,8 +19,18 @@ public struct WebContentPolicy: Sendable {
     /// 需要留在 App 内的第三方登录/授权域名。
     public var trustedHosts: Set<String>
 
-    public init(trustedHosts: Set<String> = WebContentPolicy.defaultTrustedHosts) {
+    /// 站外的 http(s) 链接是否也留在应用内。
+    ///
+    /// 默认 `true`：点外链不再把人丢到 Safari，页面里就有「在浏览器打开」可以主动出去。
+    /// `tel:` / `mailto:` 这类非网页协议始终交给系统，WebView 处理不了。
+    public var keepsExternalLinksInApp: Bool
+
+    public init(
+        trustedHosts: Set<String> = WebContentPolicy.defaultTrustedHosts,
+        keepsExternalLinksInApp: Bool = true
+    ) {
         self.trustedHosts = trustedHosts
+        self.keepsExternalLinksInApp = keepsExternalLinksInApp
     }
 
     public static let defaultTrustedHosts: Set<String> = [
@@ -39,6 +49,7 @@ public struct WebContentPolicy: Sendable {
             if isSameSite(host: host, serviceHost: serviceHost) { return .allowInApp }
             if trustedHosts.contains(host) { return .allowInApp }
             if trustedHosts.contains(where: { host.hasSuffix("." + $0) }) { return .allowInApp }
+            if keepsExternalLinksInApp { return .allowInApp }
             return .openExternally
         case "about", "blob", "data":
             return .allowInApp

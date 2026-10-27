@@ -11,6 +11,7 @@ struct NtfyScreen: View {
 
     @State private var store: NtfyModel
     @State private var showCredential = false
+    @State private var browserTarget: BrowserTarget?
 
     init(
         service: ServiceDefinition,
@@ -115,6 +116,7 @@ struct NtfyScreen: View {
         .sheet(isPresented: $showCredential) {
             CredentialSheet(definition: definition, service: service)
         }
+        .inAppBrowser($browserTarget)
     }
 
     private var bannerState: IntegrationCenter.CredentialState? {
@@ -186,8 +188,14 @@ struct NtfyScreen: View {
                         CapsuleTag(text: "高优先级", systemImage: "exclamationmark", tint: .orange)
                     }
                     if let click = message.click, let url = URL(string: click) {
-                        Link("打开链接", destination: url)
-                            .font(.caption)
+                        Button {
+                            browserTarget = BrowserTarget(url: url)
+                        } label: {
+                            Label("打开链接", systemImage: "arrow.up.right.square")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.tint)
                     }
                     Spacer()
                     Button("删除", role: .destructive) {

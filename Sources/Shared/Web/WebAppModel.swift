@@ -38,7 +38,8 @@ final class WebAppModel {
     private let service: ServiceDefinition
     private let initialURL: URL
     private let serviceHost: String?
-    private let policy = WebContentPolicy()
+    /// 站外链接是否留在应用内（随设置变化，由 `ServiceScreen` 调 `updatePolicy` 同步）。
+    private(set) var policy = WebContentPolicy()
     private let bridge = WebBridgeHandler()
     private var onNotification: ((NotificationItem) -> Void)?
     private var onLog: ((String) -> Void)?
@@ -130,6 +131,12 @@ final class WebAppModel {
     }
 
     // MARK: - 导航策略（由 WebNavigationDecider 转发）
+
+    /// 设置里「站外链接在应用内打开」变化时同步导航策略。
+    func updatePolicy(keepsExternalLinksInApp: Bool) {
+        guard policy.keepsExternalLinksInApp != keepsExternalLinksInApp else { return }
+        policy = WebContentPolicy(keepsExternalLinksInApp: keepsExternalLinksInApp)
+    }
 
     func decideNavigationPolicy(for action: WebPage.NavigationAction) -> WKNavigationActionPolicy {
         guard let url = action.request.url else { return .allow }
