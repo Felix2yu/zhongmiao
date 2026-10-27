@@ -32,10 +32,19 @@ struct IntegrationCredential: Codable, Hashable, Sendable {
         self.updatedAt = updatedAt
     }
 
+    /// 没有任何可用于鉴权的凭据。
+    ///
+    /// 登录型应用（货殖、吾身、月汐）在拿到 JWT / Cookie 之前只有账号密码，
+    /// 这同样是「已配置」——否则开机时的静默重登会被跳过，界面还会误报「未配置」。
     var isEmpty: Bool {
-        [token, jwt, sessionCookie].allSatisfy { value in
-            (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasSecret = [token, jwt, sessionCookie].contains { value in
+            !(value ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
+        if hasSecret { return false }
+        let hasLogin = [username, password].allSatisfy { value in
+            !(value ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        return !hasLogin
     }
 
     var bearer: String {
