@@ -25,7 +25,7 @@
 | 蜂巢 | `qbhive` | P1 | 可选 Bearer | 统计、种子列表、RSS 状态 | 暂停/继续、校验、限速 | 关 |
 | ntfy | `ntfy` | P1 | 可选 Bearer | 主题、时间线、搜索 | 标记已读、删除消息 | 关 |
 | 月汐 | `yuexi` | P1 | 账号密码 → 会话 | 周期倒计时、异常、通知状态、记录历史 | 新增记录人、记一次经期 | 开（09:00，脱敏） |
-| 拾帧集 | `bili-history` | P2 | 无 | 今日观看、历史、月度统计、热力图 | — | 关 |
+| 拾帧集 | `bili-history` | P2 | 无 | 今日观看、历史、月度统计、热力图 | 搜索标题/UP 主、按主分类筛选 | 关 |
 | 察新 | `chaxin` | P2 | 无 | 仓库、Release、未读计数 | 添加监控仓库、立即检查、重发失败通知 | 关 |
 | 流霞 | `liuxia` | P2 | 无 | 今日/明日朝霞晚霞、排行 | — | 关 |
 | whoami | `whoami` | 网页 | 无 | — | — | — |
@@ -273,7 +273,7 @@ xcrun simctl launch --terminate-running-process booted im.yufei.zhongmiao
 | 蜂巢 | `/api/torrents/stats`、`/api/torrents`、`/api/rss/status` | `perform(action:hash:)`：暂停/继续/校验/限速 |
 | ntfy | `/v1/topics`、`/{topic}/json?poll=1&since=7d`、`/v1/search` | `GET /{topic}/{ids}/read`（≤50/批，非法 id 先剔除）、删除消息 |
 | 月汐 | `/api/notification/status`、`/api/anomaly` | —（只给倒计时，详情留网页版） |
-| 拾帧集 | `view_at` 用 epoch 秒；`/api/history/all`、`/api/viewing/monthly-stats`、`/api/daily/daily-count` | — |
+| 拾帧集 | `view_at` 用 epoch 秒；`/api/history/all`、`/api/history/search`、`/api/viewing/monthly-stats`、`/api/daily/daily-count` | — |
 | 察新 | `/api/repos`、`/api/notifications`（limit 20）；`0001-01-01` 按「无」处理 | —（不调 `/api/settings`，会漏 GitHub Token） |
 | 流霞 | `/api/today`、`/api/cities`、`/api/rankings?start=&end=` | —（不无界拉 `/api/data`） |
 

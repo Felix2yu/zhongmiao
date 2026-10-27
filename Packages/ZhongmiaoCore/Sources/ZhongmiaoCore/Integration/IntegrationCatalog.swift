@@ -291,10 +291,12 @@ public enum IntegrationCatalog {
                 IntegrationCapability("今日观看"),
                 IntegrationCapability("历史列表"),
                 IntegrationCapability("月度统计"),
-                IntegrationCapability("热力图")
+                IntegrationCapability("热力图"),
+                IntegrationCapability("搜索标题与 UP 主"),
+                IntegrationCapability("按主分类筛选")
             ],
-            summary: "观看记录与统计看板",
-            webOnlyNote: "搜索、导出、视频详情仍在网页版。",
+            summary: "观看记录、搜索与统计看板",
+            webOnlyNote: "删除记录（后端标注待实现）、导出、视频详情仍在网页版。",
             supportsReminders: false
         ),
         IntegrationDefinition(

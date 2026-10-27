@@ -41,6 +41,14 @@ struct BiliHistoryPageData: Codable, Sendable {
     var total: Int64?
 }
 
+/// 主分类。后端返回 [{name, image}]（注意字段是 name，不是 main_category）。
+struct BiliMainCategory: Codable, Hashable, Sendable, Identifiable {
+    var name: String
+    var image: String?
+
+    var id: String { name }
+}
+
 struct BiliHistoryEnvelope<T: Decodable>: Decodable {
     var status: String?
     var data: T?
