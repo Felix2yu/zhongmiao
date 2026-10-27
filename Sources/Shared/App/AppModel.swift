@@ -177,7 +177,16 @@ final class AppModel {
 
     /// 冷启动静默验证已配置的原生接入；未配置的应用不发起请求。
     func validateIntegrationsOnLaunch() async {
-        for definition in IntegrationCatalog.integrated {
+        // 逐个校验。并发跑会把主线程压满（每个不可达的服务要等满 15s 超时），
+        // 连带 UI 自动化都插不进事件，所以这里坚持串行。
+        // 但要把「用户正要打开的那个应用」排到最前，否则点进去先看到一堆加载中。
+        var ordered = IntegrationCatalog.integrated
+        if let pending = pendingRoute?.serviceID,
+           let index = ordered.firstIndex(where: { $0.serviceID == pending }),
+           index > 0 {
+            ordered.insert(ordered.remove(at: index), at: 0)
+        }
+        for definition in ordered {
             guard let service = ServiceCatalog.service(id: definition.serviceID),
                   let baseURL = url(for: service) else { continue }
             await integrations.validateIfConfigured(serviceID: definition.serviceID, baseURL: baseURL)

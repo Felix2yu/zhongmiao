@@ -87,7 +87,7 @@ struct DiarumScreen: View {
                 NavigationLink {
                     ServiceScreen(service: service, initialURL: baseURL)
                 } label: {
-                    Label("在网页版写日记（媒体、AI 润色、导入导出）", systemImage: "safari")
+                    Label("在应用内打开网页版（媒体、AI 润色、导入导出）", systemImage: "safari")
                 }
             } footer: {
                 Text("原生保存只覆盖正文；情绪、场景、标签、天气保持原值。")
@@ -206,25 +206,29 @@ struct DiarumScreen: View {
             }
             .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
 
-            if isLoadingEntry {
-                HStack {
-                    ProgressView().controlSize(.small)
-                    Text("正在读取…").font(.caption).foregroundStyle(.secondary)
+            if let loadError {
+                LoadFailureView(title: "这一天的日记读不出来", detail: loadError) {
+                    Task { await loadEntry(selectedDate) }
                 }
-            } else if awaitingLogin {
+            } else if awaitingLogin && text.isEmpty {
                 HStack {
                     ProgressView().controlSize(.small)
                     Text("正在登录吾身…").font(.caption).foregroundStyle(.secondary)
                 }
-            } else if let loadError {
-                LoadFailureView(title: "这一天的日记读不出来", detail: loadError) {
-                    Task { await loadEntry(selectedDate) }
-                }
             } else {
+                // 加载中不换掉编辑框，只加一个小转圈：换掉会丢焦点、也会让正在输入的内容闪一下。
                 TextEditor(text: $text)
                     .font(.body)
                     .frame(minHeight: 220)
                     .scrollContentBackground(.hidden)
+                    .accessibilityIdentifier("diarum.editor")
+                    .overlay(alignment: .topTrailing) {
+                        if isLoadingEntry {
+                            ProgressView()
+                                .controlSize(.small)
+                                .padding(6)
+                        }
+                    }
                     .overlay(alignment: .topLeading) {
                         if text.isEmpty {
                             Text("写点什么…")
@@ -382,6 +386,8 @@ struct DiarumScreen: View {
     }
 
     private var bannerState: IntegrationCenter.CredentialState? {
+        // 还在静默重登时不要抢戏报「凭据已失效」，编辑器那行已经在说「正在登录」。
+        if awaitingLogin { return nil }
         let state = store.center.state(for: "diarum")
         if state.isUsable && store.error == nil { return nil }
         return state
@@ -463,21 +469,38 @@ struct DiarumScreen: View {
         loadError = nil
         saveNote = nil
         defer { isLoadingEntry = false }
-        guard let client = client() else {
-            // 冷启动的静默登录还没回来，别急着报「凭据失效」。
-            baseline = nil
-            text = ""
+
+        var client = self.client()
+        if client == nil {
+            // 冷启动时 JWT 还没换回来：先静默重登，别把「还没登录」当成「凭据失效」。
             awaitingLogin = true
+            await store.center.reauthenticateIfPossible(serviceID: "diarum", baseURL: baseURL)
+            client = self.client()
+        }
+        guard let client else {
+            awaitingLogin = true
+            // 保留屏幕上已有的正文，等登录完成后由 refreshWhenIntegrationReady 再加载。
             return
         }
         awaitingLogin = false
+
         do {
             let diary = try await client.diary(date: QiansiLocalDate.dayString(date))
             baseline = diary
             text = diary?.content ?? ""
+        } catch let error as IntegrationAPIError where error.needsReauthorization {
+            // 钥匙串里是旧 JWT：重登一次再试，仍不行才报错。
+            if await store.center.reauthenticateIfPossible(serviceID: "diarum", baseURL: baseURL),
+               let retry = self.client(),
+               let diary = try? await retry.diary(date: QiansiLocalDate.dayString(date)) {
+                awaitingLogin = false
+                baseline = diary
+                text = diary.content ?? ""
+                return
+            }
+            loadError = error.userMessage
+            store.center.reportError(error, for: "diarum")
         } catch {
-            baseline = nil
-            text = ""
             loadError = error.localizedDescription
             store.center.reportError(error, for: "diarum")
         }

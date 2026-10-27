@@ -118,14 +118,22 @@ enum IntegrationDebugSeed {
         serviceID: String,
         keychain: KeychainStore
     ) {
-        guard let username, !username.isEmpty, let password, !password.isEmpty else { return }
+        guard let username, !username.isEmpty, let password, !password.isEmpty else {
+            NSLog("[ZMSeed] skip login for %@（环境变量缺失）", serviceID)
+            return
+        }
         let credential = IntegrationCredential(
             username: username,
             password: password,
             updatedAt: .now
         )
         guard let data = try? JSONEncoder().encode(credential) else { return }
-        try? keychain.write(data, account: serviceID)
+        do {
+            try keychain.write(data, account: serviceID)
+            NSLog("[ZMSeed] wrote login for %@", serviceID)
+        } catch {
+            NSLog("[ZMSeed] write %@ failed: %@", serviceID, error.localizedDescription)
+        }
     }
 }
 #endif

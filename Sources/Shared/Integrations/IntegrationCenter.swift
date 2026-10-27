@@ -189,6 +189,20 @@ final class IntegrationCenter {
         }
     }
 
+    /// 状态已失效/未知，但钥匙串里还留着账号密码时，静默重登一次。
+    /// 用途：页面先落地、登录后到导致首页 401（旧 JWT），不要把「还没登录」变成
+    /// 「凭据已失效」让用户去重新授权。
+    @discardableResult
+    func reauthenticateIfPossible(serviceID: String, baseURL: URL) async -> Bool {
+        guard let definition = IntegrationCatalog.definition(for: serviceID),
+              definition.authKind == .login || definition.authKind == .sessionCookie else { return false }
+        guard let credential = secrets.credential(for: serviceID),
+              !(credential.username ?? "").trimmingCharacters(in: .whitespaces).isEmpty,
+              !(credential.password ?? "").isEmpty else { return false }
+        await validateIfConfigured(serviceID: serviceID, baseURL: baseURL)
+        return state(for: serviceID).isUsable
+    }
+
     /// 冷启动/进入设置时静默验证，不弹任何输入。
     func validateIfConfigured(serviceID: String, baseURL: URL) async {
         guard let definition = IntegrationCatalog.definition(for: serviceID) else { return }
