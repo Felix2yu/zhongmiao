@@ -13,23 +13,31 @@ enum IntegrationDebugSeed {
         return raw
     }
 
+    /// 本机起的临时服务地址。模拟器用 127.0.0.1，真机要填 Mac 的局域网地址。
+    private static var host: String {
+        let raw = ProcessInfo.processInfo.environment["ZM_HOST"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let raw, !raw.isEmpty else { return "127.0.0.1" }
+        return raw
+    }
+
     static func baseURL(for serviceID: String) -> URL? {
         guard previewServiceID != nil else { return nil }
-        let map: [String: String] = [
-            "qiansi": "http://127.0.0.1:18080",
-            "qingye": "http://127.0.0.1:18081",
-            "huozhi": "http://127.0.0.1:18082",
-            "shenshi": "http://127.0.0.1:18083",
-            "diarum": "http://127.0.0.1:18084",
-            "yuexi": "http://127.0.0.1:18087",
-            "mujian": "http://127.0.0.1:18088",
-            "liuxia": "http://127.0.0.1:18089",
-            "qbhive": "http://127.0.0.1:18091",
-            "ntfy": "http://127.0.0.1:18090",
-            "bili-history": "http://127.0.0.1:18092",
-            "chaxin": "http://127.0.0.1:18093"
+        let ports: [String: Int] = [
+            "qiansi": 18080,
+            "qingye": 18081,
+            "huozhi": 18082,
+            "shenshi": 18083,
+            "diarum": 18084,
+            "yuexi": 18087,
+            "mujian": 18088,
+            "liuxia": 18089,
+            "ntfy": 18090,
+            "qbhive": 18091,
+            "bili-history": 18092,
+            "chaxin": 18093
         ]
-        return map[serviceID].flatMap(URL.init(string:))
+        return ports[serviceID].flatMap { URL(string: "http://\(host):\($0)") }
     }
 
     static func applyIfNeeded() {

@@ -143,6 +143,20 @@ targets:
         NSCameraUsageDescription: 上传照片时需要使用相机。
         NSPhotoLibraryUsageDescription: 从相册选择图片上传到你的自建服务。
 
+  ZhongmiaoUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "27.0"
+    sources:
+      - path: UITests
+    dependencies:
+      - target: Zhongmiao
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: im.yufei.zhongmiao.uitests
+        TEST_TARGET_NAME: Zhongmiao
+        GENERATE_INFOPLIST_FILE: YES
+
 schemes:
   Zhongmiao:
     build:
@@ -168,3 +182,12 @@ schemes:
       config: Debug
     archive:
       config: Release
+  ZhongmiaoUITests:
+    build:
+      targets:
+        Zhongmiao: all
+        ZhongmiaoUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - ZhongmiaoUITests
