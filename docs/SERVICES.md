@@ -30,6 +30,23 @@
 
 12 个 Web 应用全部达到 PWA 契约，所以「离线」对绝大多数入口可用——前提是 HTTPS，而你的部署正好满足。
 
+## 原生接入分层
+
+这张表只描述访问方式。**原生能做什么**记在另一份注册表 `IntegrationCatalog` 里，两者一一对应
+（`IntegrationCatalog.validate()` 会拦住缺项、重复、以及给网页版应用声明原生能力）：
+
+| 分层 | 应用 |
+| :-- | :-- |
+| P0 深度接入（读写 + 提醒） | 货殖、牵丝、青野集 |
+| P1 原生看板（只读 + 轻写） | 幕间、吾身、慎始、蜂巢、ntfy、月汐 |
+| P2 只读看板 | 拾帧集、察新、流霞 |
+| 保留网页版 | whoami（依赖浏览器 JS/Client Hints）、图切（交互式切图，无持久数据） |
+
+刻意分成两份而不是塞进 `ServiceDefinition`：`zm-catalog` 与 `deploy/nginx/gen_nginx.py` 只消费
+访问属性，加原生界面不该让部署链路跟着动结构。
+
+原生实现的接口矩阵、凭据与降级规则见 [INTEGRATIONS.md](./INTEGRATIONS.md)。
+
 ## 内部端口 ≠ 宿主机端口
 
 `mujian / liuxia / huozhi / chaxin / qiansi` 内部都监听 **8080**。宿主机不可能把它们都映射到 8080，
@@ -80,9 +97,11 @@ ServiceDefinition(
 )
 ```
 
-2. `swift test`（注册表自检会拦住重复 id、非法色值、同名容器端口冲突）
-3. 重新生成 `catalog.json` 与 Nginx 配置，`nginx -t` 后 reload
-4. App 里「体检 → 全部检测」
+2. 在 `IntegrationCatalog.all` 里加一条说明（要不要原生界面、什么鉴权、能读能写什么、
+   哪些操作留网页版）。`.web` 优先级必须留空 `capabilities`，`.login` 不允许可选凭据
+3. `swift test`（两份注册表都会自检：重复 id、非法色值、同名容器端口冲突、接入矩阵缺项）
+4. 重新生成 `catalog.json` 与 Nginx 配置，`nginx -t` 后 reload
+5. App 里「体检 → 全部检测」；若要原生界面，再补 Client/Model/Screen 与提醒 planner
 
 ## 逐服务覆盖
 
