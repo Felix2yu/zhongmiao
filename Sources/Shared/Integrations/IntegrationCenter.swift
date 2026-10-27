@@ -52,6 +52,8 @@ final class IntegrationCenter {
     }
 
     let secrets: SecretStore
+    /// 本次会话内已验证通过的凭据。持久化失败也不影响它。
+    private var runtimeCredentials: [String: IntegrationCredential] = [:]
     let cache = IntegrationCache.shared
 
     private(set) var states: [String: CredentialState] = [:]
@@ -85,6 +87,10 @@ final class IntegrationCenter {
     }
 
     func credential(for serviceID: String) -> IntegrationCredential? {
+        // 运行时的凭据优先：登录型应用换来的会话 cookie / JWT 先落在这里。
+        // 它不依赖持久化成功——钥匙串写不进去时（模拟器、权限受限），
+        // 本次会话仍然要用这份凭据，否则会出现「明明登录成功了却读不到凭据」。
+        if let runtime = runtimeCredentials[serviceID] { return runtime }
         if let credential = secrets.credential(for: serviceID) {
             return credential
         }
@@ -92,6 +98,11 @@ final class IntegrationCenter {
         guard let key = Self.legacyKey(for: serviceID) else { return nil }
         let token = secrets.value(for: key)
         return token.isEmpty ? nil : IntegrationCredential(token: token)
+    }
+
+    /// 记住一次验证通过的凭据，供本次会话使用。
+    private func rememberRuntime(_ credential: IntegrationCredential, for serviceID: String) {
+        runtimeCredentials[serviceID] = credential
     }
 
     private static func legacyKey(for serviceID: String) -> SecretStore.LegacyKey? {
@@ -173,6 +184,7 @@ final class IntegrationCenter {
                 try secrets.setValue(validated.bearer, for: legacy)
                 try? secrets.removeCredential(for: serviceID)
             } else {
+                rememberRuntime(validated, for: serviceID)
                 try secrets.save(validated, for: serviceID)
             }
             states[serviceID] = definition.authKind == .none ? .noAuth : .valid(.now)
@@ -231,7 +243,15 @@ final class IntegrationCenter {
                         try? secrets.setValue(validated.bearer, for: legacy)
                         try? secrets.removeCredential(for: serviceID)
                     } else {
-                        try? secrets.save(validated, for: serviceID)
+                        // 先记住再落盘：落盘失败也不该让本次会话失去凭据。
+                        rememberRuntime(validated, for: serviceID)
+                        do {
+                            try secrets.save(validated, for: serviceID)
+                        } catch {
+                            // 内存里已经是新凭据（SecretStore 会兜底），但没持久化成功，
+                            // 记一笔，别再像以前一样 try? 吞掉。
+                            NSLog("[ZMIntegration] 保存 %@ 凭据到钥匙串失败：%@", serviceID, error.localizedDescription)
+                        }
                     }
                 }
                 states[serviceID] = .valid(.now)

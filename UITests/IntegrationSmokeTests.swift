@@ -215,4 +215,33 @@ final class IntegrationSmokeTests: XCTestCase {
         Thread.sleep(forTimeInterval: 4)
         attach("qingye-plant-created")
     }
+
+    /// 月汐：原生记一次经期，落到服务端。
+    func testYuexiCreateRecord() {
+        let app = launch("yuexi", extra: [
+            "ZM_YUEXI_USERNAME": "zmnative",
+            "ZM_YUEXI_PASSWORD": "zmtest1234"
+        ])
+
+        // 冷启动要先登录拿到会话 cookie，按钮才可用。
+        let add = app.buttons["记一次经期"].firstMatch
+        XCTAssertTrue(add.waitForExistence(timeout: 30), "没找到记经期入口")
+        add.tap()
+
+        let save = app.buttons["保存"].firstMatch
+        XCTAssertTrue(save.waitForExistence(timeout: 10), "表单没出来")
+        // 没选中记录人时按钮是禁用的，点了没反应还不报错——这里必须挡住。
+        XCTAssertTrue(save.isEnabled, "保存按钮不可用（没选中记录人？）")
+        save.tap()
+
+        Thread.sleep(forTimeInterval: 3)
+        attach("yuexi-record-created")
+
+        // 服务端要真的多出一条：页面「记录历史」里应出现今天
+        let today = DateFormatter()
+        today.locale = Locale(identifier: "en_US_POSIX")
+        today.dateFormat = "yyyy-MM-dd"
+        let marker = app.staticTexts[today.string(from: Date())].firstMatch
+        XCTAssertTrue(marker.waitForExistence(timeout: 15), "记录没有写进去")
+    }
 }

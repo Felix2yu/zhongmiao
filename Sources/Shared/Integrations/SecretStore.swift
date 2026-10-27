@@ -44,7 +44,16 @@ final class SecretStore {
         var value = credential
         value.updatedAt = .now
         let data = try JSONEncoder().encode(value)
-        try keychain.write(data, account: serviceID)
+        do {
+            try keychain.write(data, account: serviceID)
+        } catch {
+            // 钥匙串写不进去也不能让本次会话失效：内存里这份是当前唯一可用的凭据
+            // （登录型应用的会话 cookie 就靠它）。错误照抛，让上层知道没持久化成功。
+            credentials[serviceID] = value
+            revision += 1
+            lastError = error.localizedDescription
+            throw error
+        }
         credentials[serviceID] = value
         revision += 1
         lastError = nil

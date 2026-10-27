@@ -20,6 +20,9 @@ struct IntegrationHTTP: Sendable {
     let basePath: String
     let token: String?
     let cookie: String?
+    /// 有些后端写完会 303 重定向回页面（月汐的 /record/create 就是），
+    /// JSON 客户端要把它当成功而不是错误。
+    let allowsRedirect: Bool
     let session: URLSession
 
     init(
@@ -27,12 +30,14 @@ struct IntegrationHTTP: Sendable {
         basePath: String,
         token: String? = nil,
         cookie: String? = nil,
+        allowsRedirect: Bool = false,
         session: URLSession = IntegrationHTTP.defaultSession
     ) {
         self.baseURL = baseURL
         self.basePath = basePath
         self.token = token
         self.cookie = cookie
+        self.allowsRedirect = allowsRedirect
         self.session = session
     }
 
@@ -166,6 +171,7 @@ struct IntegrationHTTP: Sendable {
             let retryAfter = response.value(forHTTPHeaderField: "Retry-After").flatMap(Int.init)
             throw IntegrationAPIError.rateLimited(retryAfter: retryAfter)
         case 300..<400:
+            if allowsRedirect { break }
             throw IntegrationAPIError.unauthorized
         case 200..<300:
             break

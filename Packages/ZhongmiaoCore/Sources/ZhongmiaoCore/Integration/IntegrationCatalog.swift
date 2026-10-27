@@ -273,10 +273,13 @@ public enum IntegrationCatalog {
             capabilities: [
                 IntegrationCapability("周期倒计时"),
                 IntegrationCapability("异常提示"),
-                IntegrationCapability("通知状态")
+                IntegrationCapability("通知状态"),
+                IntegrationCapability("记录历史"),
+                IntegrationCapability("新增记录人", isWrite: true),
+                IntegrationCapability("记一次经期", isWrite: true)
             ],
-            summary: "周期倒计时与脱敏提醒",
-            webOnlyNote: "经期记录/编辑、日记录入、导出、成员管理仍在网页版。",
+            summary: "周期倒计时、记录历史与经期登记",
+            webOnlyNote: "日记录入、跨月查询、统计与导出仍在网页版。",
             supportsReminders: true
         ),
         IntegrationDefinition(

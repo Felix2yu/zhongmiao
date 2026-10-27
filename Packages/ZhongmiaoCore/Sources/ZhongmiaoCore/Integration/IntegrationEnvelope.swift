@@ -42,8 +42,11 @@ public enum IntegrationAPIError: Error, Sendable, Equatable {
             message.map { "服务返回 HTTP \(status)：\($0)" } ?? "服务返回 HTTP \(status)。"
         case .server(_, let message):
             message
-        case .decoding:
-            "返回数据无法解析，可能接口版本已变化。"
+        case .decoding(let detail):
+            // 带出具体原因，别只说一句「可能接口版本已变化」，那没法定位。
+            detail.isEmpty
+                ? "返回数据无法解析，可能接口版本已变化。"
+                : "返回数据无法解析：\(detail)"
         case .transport(let message):
             "网络请求失败：\(message)"
         case .notJSON:
