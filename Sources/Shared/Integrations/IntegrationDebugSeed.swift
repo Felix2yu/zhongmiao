@@ -22,7 +22,9 @@ enum IntegrationDebugSeed {
     }
 
     static func baseURL(for serviceID: String) -> URL? {
-        guard previewServiceID != nil else { return nil }
+        // 只覆盖正在预览的那一个服务。早前对所有服务生效，会把用户在设置里
+        // 改的地址一起盖掉，导致「改了地址还是连老 IP」。
+        guard let preview = previewServiceID, preview == serviceID else { return nil }
         let ports: [String: Int] = [
             "qiansi": 18080,
             "qingye": 18081,
@@ -40,7 +42,29 @@ enum IntegrationDebugSeed {
         return ports[serviceID].flatMap { URL(string: "http://\(host):\($0)") }
     }
 
+    /// 预览模式下在页面上标一条提示，避免「地址被调试覆盖」这种状态悄无声息。
+    static func previewBadge(for serviceID: String) -> String? {
+        guard previewServiceID == serviceID, let url = baseURL(for: serviceID) else { return nil }
+        return "调试直连 \(url.host ?? ""):\(url.port ?? 0)"
+    }
+
+
+    /// 清掉调试种子写进钥匙串的凭据，让设备回到「什么都没配」的状态。
+    /// 用途：本机临时服务跑完测试后，别把测试账号留在真机上。
+    static func clearIfRequested() {
+        let env = ProcessInfo.processInfo.environment
+        guard env["ZM_SEED_CLEAR"] == "1" else { return }
+        let keychain = KeychainStore()
+        for serviceID in ["qiansi", "shenshi", "qbhive", "huozhi", "diarum", "yuexi"] {
+            try? keychain.delete(account: serviceID)
+        }
+        try? keychain.delete(account: "legacy.mujian")
+        try? keychain.delete(account: "legacy.ntfy")
+        NSLog("[ZMSeed] cleared seeded credentials")
+    }
+
     static func applyIfNeeded() {
+        clearIfRequested()
         let env = ProcessInfo.processInfo.environment
         NSLog("[ZMSeed] preview=%@ huozhi=%@ qiansi=%@", env["ZM_PREVIEW_SERVICE"] ?? "nil", env["ZM_HUOZHI_USERNAME"] ?? "nil", env["ZM_QIANSI_TOKEN"] ?? "nil")
         let keychain = KeychainStore()

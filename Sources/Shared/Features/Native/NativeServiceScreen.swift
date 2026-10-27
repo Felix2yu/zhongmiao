@@ -15,6 +15,19 @@ struct NativeServiceScreen: View {
         Group {
             content
         }
+        #if DEBUG
+        // 调试预览会覆盖这一个服务的地址；标出来，避免被误当成「设置不生效」。
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if let badge = IntegrationDebugSeed.previewBadge(for: service.id) {
+                Text(badge)
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.orange)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 3)
+                    .background(.orange.opacity(0.12))
+            }
+        }
+        #endif
         #if os(iOS)
         // 与 ServiceScreen 一致：紧凑宽度下收起悬浮 Tab 栏，避免压住列表底部。
         .toolbar(horizontalSizeClass == .compact ? .hidden : .automatic, for: .tabBar)
