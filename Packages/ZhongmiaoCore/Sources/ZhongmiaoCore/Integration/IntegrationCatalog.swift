@@ -311,11 +311,12 @@ public enum IntegrationCatalog {
             authKind: .none,
             basePath: "/api",
             capabilities: [
-                IntegrationCapability("今日/明日朝霞晚霞"),
-                IntegrationCapability("城市排行"),
-                IntegrationCapability("统计")
+                IntegrationCapability("今明两天的朝霞与晚霞"),
+                IntegrationCapability("下一场倒计时"),
+                IntegrationCapability("未来一周的优质场次"),
+                IntegrationCapability("多模型取最优与城市筛选")
             ],
-            summary: "朝霞晚霞预报",
+            summary: "朝霞晚霞预报与观赏窗口",
             webOnlyNote: "历史归档、导出仍在网页版。",
             supportsReminders: false
         ),

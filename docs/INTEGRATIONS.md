@@ -250,7 +250,21 @@ ZhongmiaoCore（纯 Foundation，可单测）
 | 月汐 | `/api/notification/status`、`/api/anomaly` | —（只给倒计时，详情留网页版） |
 | 拾帧集 | `view_at` 用 epoch 秒；`/api/history/all`、`/api/viewing/monthly-stats`、`/api/daily/daily-count` | — |
 | 察新 | `/api/repos`、`/api/notifications`（limit 20）；`0001-01-01` 按「无」处理 | —（不调 `/api/settings`，会漏 GitHub Token） |
-| 流霞 | `/api/today`、`/api/cities`、`/api/rankings` | —（不无界拉 `/api/data`） |
+| 流霞 | `/api/today`、`/api/cities`、`/api/rankings?start=&end=` | —（不无界拉 `/api/data`） |
+
+### 流霞的质量分档（与网页版同一套）
+
+质量是 0–2.5+ 的「烧」刻度，分档写进 `LiuxiaQualityScale`，原生与网页必须一致：
+`微微烧 <0.05`、`小烧 <0.2`、`小烧到中等烧 <0.4`、`中等烧 <0.6`、`中等到大烧 <0.8`、
+`不完美大烧 <1.0`、`典型大烧 <1.5`、`优质大烧 <2.0`、`世纪大烧 <2.5`、`超级大烧`。
+原生把 **≥1.5 视为「优质」**，用于顶部「更值得看」与「未来一周的优质场次」。
+
+排程细节：
+- 同一天、同一类型、同一城市会有多个模型（`model`）的记录，`LiuxiaForecast.bestPerSlot` 取质量最高的一条。
+- 「下一场」按**时间最近**取（不是质量最高）；质量更高的优质场次单独用「更值得看」一行提示。
+- 缺 `time` 的场次无法判断先后，不参与倒计时与排序。
+- `/api/today` 只覆盖今明；未来一周的优质场次来自 `/api/rankings?start=today&end=+7d`。
+- 缓存里的 `cachedDay` 与当前日期不一致时强制刷新，否则跨天后「今天/明天」会标错。
 
 ### 两个写入口的安全做法（实测踩过的坑）
 
