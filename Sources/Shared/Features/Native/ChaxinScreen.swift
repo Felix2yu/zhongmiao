@@ -256,9 +256,9 @@ struct ChaxinScreen: View {
         return parts.isEmpty ? "—" : parts.joined(separator: " · ")
     }
 
-    private func addRepo(_ fullName: String) async {
+    private func addRepo(_ fullName: String) async -> String? {
         let trimmed = fullName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty else { return "请输入 owner/repo。" }
         isWorking = true
         actionError = nil
         actionNote = nil
@@ -267,8 +267,11 @@ struct ChaxinScreen: View {
             let added = try await ChaxinClient(baseURL: baseURL).addRepo(fullName: trimmed)
             actionNote = "已添加 \(added.fullName)"
             await store.refresh()
+            return nil
         } catch {
-            actionError = (error as? IntegrationAPIError)?.userMessage ?? error.localizedDescription
+            let message = (error as? IntegrationAPIError)?.userMessage ?? error.localizedDescription
+            actionError = message
+            return message
         }
     }
 
@@ -306,14 +309,23 @@ private struct ChaxinAddRepoSheet: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    let onSubmit: (String) async -> Void
+    /// 返回错误文案；nil 表示添加成功。
+    let onSubmit: (String) async -> String?
 
     @State private var name = ""
-    @State private var isSaving = false
+    @State private var submit = FormSubmitState()
 
     var body: some View {
         NavigationStack {
             Form {
+                if let error = submit.error {
+                    Section {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                }
+
                 Section {
                     #if os(iOS)
                     TextField("owner/repo", text: $name)
@@ -341,16 +353,15 @@ private struct ChaxinAddRepoSheet: View {
                     Button("取消") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("添加") {
+                    Button(submit.isSaving ? "添加中…" : "添加") {
                         let value = name
-                        isSaving = true
                         Task {
-                            await onSubmit(value)
-                            isSaving = false
-                            dismiss()
+                            if await submit.run({ await onSubmit(value) }) {
+                                dismiss()
+                            }
                         }
                     }
-                    .disabled(isSaving || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(submit.isSaving || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
         }

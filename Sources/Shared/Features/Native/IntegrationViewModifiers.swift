@@ -1,4 +1,33 @@
+import Observation
 import SwiftUI
+
+/// 原生页新增/编辑表单共用的提交状态。
+///
+/// 约定：同一时刻只允许一次提交；失败时表单不关闭、输入不丢、错误显示在表单内；
+/// 成功后才由调用方关闭表单并刷新数据。
+@MainActor
+@Observable
+final class FormSubmitState {
+
+    private(set) var isSaving = false
+    private(set) var error: String?
+
+    func reset() {
+        error = nil
+    }
+
+    /// 执行一次提交，返回是否成功。
+    @discardableResult
+    func run(_ action: () async -> String?) async -> Bool {
+        guard !isSaving else { return false }
+        isSaving = true
+        error = nil
+        let message = await action()
+        isSaving = false
+        error = message
+        return message == nil
+    }
+}
 
 extension View {
 

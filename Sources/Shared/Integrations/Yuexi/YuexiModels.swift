@@ -1,4 +1,26 @@
 import Foundation
+import ZhongmiaoCore
+
+/// 与页面共用同一份提醒计划。
+///
+/// 设置页改开关或时刻后，中心会直接从缓存里的快照重排；页面内的排程也走这里，
+/// 两条路径不会生成不一样的计划。
+extension YuexiSnapshot {
+
+    func reminderPlans(hour: Int, minute: Int) -> [PlannedReminder] {
+        guard let status else { return [] }
+        let inputs: [YuexiReminderInput] = status.upcoming.compactMap { item in
+            guard let date = QiansiLocalDate.parse(item.nextPeriod) else { return nil }
+            return YuexiReminderInput(name: item.name ?? "月汐", nextPeriod: date, daysLeft: item.daysLeft)
+        }
+        return YuexiReminderPlanner.plan(
+            upcoming: inputs,
+            daysBefore: status.config?.daysBefore ?? 3,
+            hour: hour,
+            minute: minute
+        )
+    }
+}
 
 struct YuexiUpcoming: Codable, Hashable, Sendable {
     var name: String?

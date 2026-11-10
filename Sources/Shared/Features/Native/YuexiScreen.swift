@@ -242,28 +242,56 @@ struct YuexiScreen: View {
         store.snapshot?.records?.persons ?? []
     }
 
-    private func createPerson(name: String, cycleLength: Int, periodLength: Int) async {
-        guard let cookie = store.center.credential(for: "yuexi")?.cookieHeader else { return }
+    /// 运行时 Cookie 只在本次会话有效，冷启动或过期时先静默重登一次，
+    /// 避免把「还没登录」误报成「未配置凭据」。
+    private func authorizedCookie() async -> String? {
+        if let cookie = store.center.credential(for: "yuexi")?.cookieHeader {
+            return cookie
+        }
+        await store.center.reauthenticateIfPossible(serviceID: "yuexi", baseURL: baseURL)
+        return store.center.credential(for: "yuexi")?.cookieHeader
+    }
+
+    private var credentialError: String {
+        if let credential = store.center.credential(for: "yuexi"), !credential.isEmpty {
+            return "月汐登录已失效，请到设置 → 月汐重新验证。"
+        }
+        return "尚未配置月汐凭据，请到设置 → 月汐填写账号密码。"
+    }
+
+    /// 返回错误文案；nil 表示已成功添加。失败时由表单保留输入并展示原因。
+    private func createPerson(name: String, cycleLength: Int, periodLength: Int) async -> String? {
+        guard let cookie = await authorizedCookie() else {
+            let message = credentialError
+            actionError = message
+            return message
+        }
         do {
             try await YuexiClient(baseURL: baseURL, cookie: cookie).createPerson(
                 name: name,
                 cycleLength: cycleLength,
                 periodLength: periodLength
             )
+            actionError = nil
             await store.refresh()
+            return nil
         } catch {
+            let message = (error as? IntegrationAPIError)?.userMessage ?? error.localizedDescription
+            actionError = message
             store.center.reportError(error, for: "yuexi")
+            return message
         }
     }
 
-    private func createRecord(personID: Int64?, start: Date, end: Date?, note: String) async {
+    /// 返回错误文案；nil 表示已成功记录。
+    private func createRecord(personID: Int64?, start: Date, end: Date?, note: String) async -> String? {
         guard let personID else {
             actionError = "没有选中记录人。"
-            return
+            return "没有选中记录人。"
         }
-        guard let cookie = store.center.credential(for: "yuexi")?.cookieHeader else {
-            actionError = "尚未连接月汐，请先在设置里配置凭据。"
-            return
+        guard let cookie = await authorizedCookie() else {
+            actionError = credentialError
+            return credentialError
         }
         do {
             try await YuexiClient(baseURL: baseURL, cookie: cookie).createRecord(
@@ -274,10 +302,13 @@ struct YuexiScreen: View {
             )
             actionError = nil
             await store.refresh()
+            return nil
         } catch {
             // 写操作的失败必须让人看见，静默吞掉会变成「点了没反应」。
-            actionError = (error as? IntegrationAPIError)?.userMessage ?? error.localizedDescription
+            let message = (error as? IntegrationAPIError)?.userMessage ?? error.localizedDescription
+            actionError = message
             store.center.reportError(error, for: "yuexi")
+            return message
         }
     }
 
@@ -328,18 +359,11 @@ struct YuexiScreen: View {
     }
 
     private func scheduleReminders() async {
-        guard let status = store.snapshot?.status else { return }
         let preference = store.center.preference(for: "yuexi")
-        let inputs: [YuexiReminderInput] = status.upcoming.compactMap { item in
-            guard let date = QiansiLocalDate.parse(item.nextPeriod) else { return nil }
-            return YuexiReminderInput(name: item.name ?? "月汐", nextPeriod: date, daysLeft: item.daysLeft)
-        }
-        let plans = YuexiReminderPlanner.plan(
-            upcoming: inputs,
-            daysBefore: status.config?.daysBefore ?? 3,
+        let plans = store.snapshot?.reminderPlans(
             hour: preference.reminderHour,
             minute: preference.reminderMinute
-        )
+        ) ?? []
         await store.center.syncReminders(serviceID: "yuexi", plans: plans)
     }
 }
@@ -349,16 +373,25 @@ private struct YuexiPersonSheet: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    let onSubmit: (String, Int, Int) async -> Void
+    /// 返回错误文案；nil 表示保存成功。
+    let onSubmit: (String, Int, Int) async -> String?
 
     @State private var name = ""
     @State private var cycleLength = 28
     @State private var periodLength = 5
-    @State private var isSaving = false
+    @State private var submit = FormSubmitState()
 
     var body: some View {
         NavigationStack {
             Form {
+                if let error = submit.error {
+                    Section {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                }
+
                 Section("记录人") {
                     TextField("名字", text: $name)
                         .accessibilityIdentifier("yuexi.personName")
@@ -377,16 +410,15 @@ private struct YuexiPersonSheet: View {
                     Button("取消") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(isSaving ? "保存中…" : "保存") {
+                    Button(submit.isSaving ? "保存中…" : "保存") {
                         let value = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                        isSaving = true
                         Task {
-                            await onSubmit(value, cycleLength, periodLength)
-                            isSaving = false
-                            dismiss()
+                            if await submit.run({ await onSubmit(value, cycleLength, periodLength) }) {
+                                dismiss()
+                            }
                         }
                     }
-                    .disabled(isSaving || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(submit.isSaving || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
         }
@@ -399,18 +431,27 @@ private struct YuexiRecordSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     let persons: [YuexiPerson]
-    let onSubmit: (Int64?, Date, Date?, String) async -> Void
+    /// 返回错误文案；nil 表示保存成功。
+    let onSubmit: (Int64?, Date, Date?, String) async -> String?
 
     @State private var personID: Int64?
     @State private var start = Date()
     @State private var ended = false
     @State private var end = Date()
     @State private var note = ""
-    @State private var isSaving = false
+    @State private var submit = FormSubmitState()
 
     var body: some View {
         NavigationStack {
             Form {
+                if let error = submit.error {
+                    Section {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                }
+
                 Section("谁") {
                     Picker("记录人", selection: $personID) {
                         Text("请选择").tag(nil as Int64?)
@@ -450,15 +491,16 @@ private struct YuexiRecordSheet: View {
                     Button("取消") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(isSaving ? "保存中…" : "保存") {
-                        isSaving = true
+                    Button(submit.isSaving ? "保存中…" : "保存") {
                         Task {
-                            await onSubmit(personID, start, ended ? end : nil, note)
-                            isSaving = false
-                            dismiss()
+                            if await submit.run({
+                                await onSubmit(personID, start, ended ? end : nil, note)
+                            }) {
+                                dismiss()
+                            }
                         }
                     }
-                    .disabled(isSaving || personID == nil)
+                    .disabled(submit.isSaving || personID == nil)
                 }
             }
         }

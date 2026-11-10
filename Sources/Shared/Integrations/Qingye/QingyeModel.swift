@@ -93,6 +93,20 @@ final class QingyeModel {
 
     // MARK: - 操作
 
+    /// 新增植物后直接把服务端返回的对象并入快照，避免再拉一次全量列表。
+    func apply(created plant: QingyePlant) async {
+        guard var value = snapshot else {
+            await refresh()
+            return
+        }
+        if !value.plants.contains(where: { $0.id == plant.id }) {
+            value.plants.append(plant)
+        }
+        snapshot = value
+        lastUpdated = .now
+        await center.cache.save(value, serviceID: "qingye")
+    }
+
     func complete(_ task: QingyeTask, note: String) async {
         guard !busyTaskIDs.contains(task.id) else { return }
         busyTaskIDs.insert(task.id)

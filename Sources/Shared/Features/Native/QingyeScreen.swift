@@ -17,8 +17,6 @@ struct QingyeScreen: View {
     @State private var focusSection: String?
     @State private var showAddPlant = false
     @State private var guideTarget: GuideTarget?
-    @State private var isWorking = false
-    @State private var actionError: String?
 
     init(
         service: ServiceDefinition,
@@ -127,17 +125,15 @@ struct QingyeScreen: View {
         }
     }
 
-    private func createPlant(_ draft: QingyePlantDraft) async {
-        isWorking = true
-        actionError = nil
-        defer { isWorking = false }
+    /// 返回错误文案；nil 表示已成功创建。失败时由表单保留输入并展示原因。
+    private func createPlant(_ draft: QingyePlantDraft) async -> String? {
         do {
             let plant = try await QingyeClient(baseURL: baseURL).createPlant(draft)
-            actionError = nil
-            await store.refresh()
+            await store.apply(created: plant)
             store.expandedPlantID = plant.id
+            return nil
         } catch {
-            actionError = (error as? IntegrationAPIError)?.userMessage ?? error.localizedDescription
+            return (error as? IntegrationAPIError)?.userMessage ?? error.localizedDescription
         }
     }
 
@@ -485,7 +481,8 @@ private struct QingyeAddPlantSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     let rooms: [QingyeRoom]
-    let onSubmit: (QingyePlantDraft) async -> Void
+    /// 返回错误文案；nil 表示保存成功。
+    let onSubmit: (QingyePlantDraft) async -> String?
 
     @State private var name = ""
     @State private var species = ""
@@ -495,11 +492,19 @@ private struct QingyeAddPlantSheet: View {
     @State private var note = ""
     @State private var acquired = Date()
     @State private var hasAcquiredDate = false
-    @State private var isSaving = false
+    @State private var submit = FormSubmitState()
 
     var body: some View {
         NavigationStack {
             Form {
+                if let error = submit.error {
+                    Section {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                }
+
                 Section("植物") {
                     TextField("名字", text: $name)
                         .accessibilityIdentifier("qingye.plantName")
@@ -545,14 +550,13 @@ private struct QingyeAddPlantSheet: View {
                             lightRequirement: light.trimmingCharacters(in: .whitespacesAndNewlines),
                             acquiredDate: hasAcquiredDate ? Self.dayString(acquired) : ""
                         )
-                        isSaving = true
                         Task {
-                            await onSubmit(draft)
-                            isSaving = false
-                            dismiss()
+                            if await submit.run({ await onSubmit(draft) }) {
+                                dismiss()
+                            }
                         }
                     }
-                    .disabled(isSaving || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(submit.isSaving || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
         }

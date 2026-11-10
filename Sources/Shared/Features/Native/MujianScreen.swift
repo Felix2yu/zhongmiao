@@ -26,6 +26,7 @@ struct MujianScreen: View {
     @State private var draft = MujianRecordDraft()
     @State private var categories: [MujianCategory] = []
     @State private var actionError: String?
+    @State private var submit = FormSubmitState()
 
     enum Mode: String, CaseIterable, Identifiable {
         case upcoming = "近期"
@@ -113,7 +114,7 @@ struct MujianScreen: View {
                     Label("在网页版管理（剧种、演员、场馆、备份）", systemImage: "safari")
                 }
             } footer: {
-                Text("录入、搜索、标记已观看已可在原生完成；演出提醒仍由既有本地通知排程。")
+                Text(Self.listFooter)
             }
         }
         .navigationTitle(service.name)
@@ -169,6 +170,14 @@ struct MujianScreen: View {
     }
 
     // MARK: - 各区
+
+    private static var listFooter: String {
+        #if os(iOS)
+        "录入、搜索、标记已观看已可在原生完成；演出提醒走本地通知，需要穿透静音与专注模式的场次，在演出详情里打开「开演闹钟」。"
+        #else
+        "录入、搜索、标记已观看已可在原生完成；演出提醒走本地通知。"
+        #endif
+    }
 
     @ViewBuilder
     private var upcomingSection: some View {
@@ -467,6 +476,19 @@ struct MujianScreen: View {
                     }
                 }
 
+                #if os(iOS)
+                // 闹钟只在 iOS 有（AlarmKit 不在 macOS SDK 里），且必须知道开演时刻。
+                if let startsAt = record.startsAt {
+                    ShowAlarmSection(
+                        showID: record.id,
+                        name: record.name,
+                        venue: record.venueLabel.isEmpty ? nil : record.venueLabel,
+                        seat: record.seat,
+                        startsAt: startsAt
+                    )
+                }
+                #endif
+
                 Section {
                     Toggle("已观看", isOn: Binding(
                         get: { record.watched == true },
@@ -540,9 +562,9 @@ struct MujianScreen: View {
                         #endif
                 }
 
-                if let actionError {
+                if let error = submit.error {
                     Section {
-                        Text(actionError).font(.caption).foregroundStyle(.red)
+                        Text(error).font(.caption).foregroundStyle(.red)
                     }
                 }
             }
@@ -555,10 +577,14 @@ struct MujianScreen: View {
                     Button("取消") { showComposer = false }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
-                        Task { await saveDraft() }
+                    Button(submit.isSaving ? "保存中…" : "保存") {
+                        Task {
+                            if await submit.run({ await saveDraft() }) {
+                                showComposer = false
+                            }
+                        }
                     }
-                    .disabled(!draft.isValid)
+                    .disabled(submit.isSaving || !draft.isValid)
                 }
             }
         }
@@ -648,6 +674,7 @@ struct MujianScreen: View {
 
     private func prepareComposer() async {
         actionError = nil
+        submit.reset()
         draft = MujianRecordDraft()
         if categories.isEmpty {
             categories = (try? await client().categories()) ?? []
@@ -663,17 +690,24 @@ struct MujianScreen: View {
         }
     }
 
-    private func saveDraft() async {
-        actionError = nil
+    /// 返回错误文案；nil 表示已成功录入。
+    private func saveDraft() async -> String? {
         do {
             let created = try await client().create(draft)
-            showComposer = false
-            await loadRecords(reset: true)
+            // 列表未筛选时直接并入新记录；筛选或分页状态下再全量刷新，避免插错位置。
+            if mode == .all, query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                records.removeAll { $0.id == created.id }
+                records.insert(created, at: 0)
+                total += 1
+            } else {
+                await loadRecords(reset: true)
+            }
             await store.refresh()
             selected = created
+            return nil
         } catch {
-            actionError = error.localizedDescription
             store.center.reportError(error, for: "mujian")
+            return error.localizedDescription
         }
     }
 }
