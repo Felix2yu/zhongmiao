@@ -8,6 +8,7 @@ struct RootView: View {
     }
 
     @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var tab: Tab = .catalog
     @State private var catalogPath = NavigationPath()
     @State private var inboxPath = NavigationPath()
@@ -98,10 +99,10 @@ struct RootView: View {
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 76)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                 .task(id: toast) {
                     try? await Task.sleep(nanoseconds: 2_600_000_000)
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                         model.toast = nil
                     }
                 }

@@ -87,15 +87,16 @@ struct CapsuleTag: View {
         HStack(spacing: 3) {
             if let systemImage {
                 Image(systemName: systemImage)
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(tint)
             }
             Text(text)
                 .font(.caption2.weight(.medium))
+                .foregroundStyle(.primary)
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 2)
-        .foregroundStyle(tint)
-        .background(tint.opacity(0.12), in: Capsule())
+        .background(tint.opacity(0.16), in: Capsule())
     }
 }
 
