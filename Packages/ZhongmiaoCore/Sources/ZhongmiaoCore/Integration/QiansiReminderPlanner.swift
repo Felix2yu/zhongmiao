@@ -8,6 +8,8 @@ public struct AnniversaryReminderInput: Hashable, Sendable {
     public var nextDate: Date
     public var daysUntil: Int
     public var remindDays: [Int]
+    /// 农历日期无法用 EventKit 的年度重复规则表达，保持一次性提醒。
+    public var isLunar: Bool
 
     public init(
         id: String,
@@ -15,7 +17,8 @@ public struct AnniversaryReminderInput: Hashable, Sendable {
         personName: String? = nil,
         nextDate: Date,
         daysUntil: Int,
-        remindDays: [Int]
+        remindDays: [Int],
+        isLunar: Bool = false
     ) {
         self.id = id
         self.title = title
@@ -23,6 +26,7 @@ public struct AnniversaryReminderInput: Hashable, Sendable {
         self.nextDate = nextDate
         self.daysUntil = daysUntil
         self.remindDays = remindDays
+        self.isLunar = isLunar
     }
 }
 
@@ -108,7 +112,11 @@ public enum QiansiReminderPlanner {
                         title: title,
                         body: remaining == 0 ? "就是今天" : "还有 \(remaining) 天",
                         fireDate: fireDate,
-                        userInfo: ["kind": "anniversary", "id": anniversary.id],
+                        userInfo: [
+                            "kind": "anniversary",
+                            "id": anniversary.id,
+                            "repeatsYearly": anniversary.isLunar ? "0" : "1",
+                        ],
                         target: NativeTarget(kind: "anniversary", identifier: anniversary.id)
                     )
                 )

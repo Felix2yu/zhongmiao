@@ -377,7 +377,8 @@ final class QiansiModel {
                 personName: anniversary.personName,
                 nextDate: date,
                 daysUntil: anniversary.daysUntil ?? QiansiLocalDate.daysUntil(date),
-                remindDays: anniversary.remindDayOffsets
+                remindDays: anniversary.remindDayOffsets,
+                isLunar: anniversary.isLunar ?? false
             )
         }
 

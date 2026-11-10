@@ -92,7 +92,11 @@ final class IntegrationReminderScheduler: @unchecked Sendable {
         content.body = reminder.body
         content.categoryIdentifier = Self.categoryIdentifier
         content.sound = .default
-        content.interruptionLevel = .timeSensitive
+        // 这里刻意不用 `.timeSensitive`：该中断级别需要 `Time Sensitive Notifications`
+        // 能力，而官方《支持的功能 (iOS)》里这一项只对付费会员开放。免费个人账号下
+        // 系统会把它**静默降级**成 `.active`，不会报错、也不会穿透专注模式。
+        // 直接写 `.active`，让代码与真机行为一致，避免排障时被它误导。
+        content.interruptionLevel = .active
         content.threadIdentifier = reminder.serviceID
         var info = reminder.userInfo
         info["integrationServiceID"] = reminder.serviceID

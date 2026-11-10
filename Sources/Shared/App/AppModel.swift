@@ -42,12 +42,18 @@ final class AppModel {
     private(set) var ntfyTopics: [String]
     /// 缓存中尚未散场的演出，供设置页展示与提醒排程使用。
     private(set) var shows: [Show] = []
+    /// 系统日历授权被拒或失效时的可读提示，设置页展示；授权成功后清空。
+    var calendarAccessNotice: String?
     var toast: String?
     /// 通知点击 / 系统深链请求打开的服务页。
     var pendingRoute: Route?
 
     let network = NetworkMonitor()
     let integrations: IntegrationCenter
+    /// 开演闹钟。只有 iOS 有 AlarmKit，所以整块只在 iOS 存在。
+    #if os(iOS)
+    let showAlarms = ShowAlarmScheduler()
+    #endif
 
     private let scheduler: NotificationScheduler
     private let engine: NotificationEngine
@@ -170,6 +176,7 @@ final class AppModel {
 
     /// 首帧后执行：刷新快照、申请状态、触发一次同步。
     func bootstrap() async {
+        configureReminderRebuilders()
         refreshSnapshot()
         authorization = await scheduler.authorizationStatus()
         if await scheduler.isDeliveryAllowed() {
@@ -185,6 +192,40 @@ final class AppModel {
         await refreshShows()
         #endif
         Task { await validateIntegrationsOnLaunch() }
+    }
+
+    /// 设置页改提醒开关/时刻后，用持久化快照重建计划。
+    /// 不实例化页面、不发起网络请求；没有缓存的应用等首次打开时再排程。
+    private func configureReminderRebuilders() {
+        let center = integrations
+        center.registerReminderRebuilder(serviceID: "qiansi") { [weak self] in
+            guard let self,
+                  let service = ServiceCatalog.service(id: "qiansi"),
+                  let baseURL = self.url(for: service) else { return }
+            await QiansiModel(service: service, baseURL: baseURL, center: center).loadCache()
+        }
+        center.registerReminderRebuilder(serviceID: "qingye") { [weak self] in
+            guard let self,
+                  let service = ServiceCatalog.service(id: "qingye"),
+                  let baseURL = self.url(for: service) else { return }
+            await QingyeModel(service: service, baseURL: baseURL, center: center).loadCache()
+        }
+        center.registerReminderRebuilder(serviceID: "shenshi") { [weak self] in
+            guard let self,
+                  let service = ServiceCatalog.service(id: "shenshi"),
+                  let baseURL = self.url(for: service) else { return }
+            await ShenshiModel(service: service, baseURL: baseURL, center: center).loadCache()
+        }
+        center.registerReminderRebuilder(serviceID: "yuexi") { [weak center] in
+            guard let center else { return }
+            let preference = center.preference(for: "yuexi")
+            let cached = await center.cache.load(YuexiSnapshot.self, serviceID: "yuexi")
+            let plans = cached?.payload.reminderPlans(
+                hour: preference.reminderHour,
+                minute: preference.reminderMinute
+            ) ?? []
+            await center.syncReminders(serviceID: "yuexi", plans: plans)
+        }
     }
 
     /// 冷启动静默验证已配置的原生接入；未配置的应用不发起请求。
@@ -213,6 +254,9 @@ final class AppModel {
     func refreshShows() async {
         guard settings.showsEnabled else {
             await showScheduler.cancelAll()
+            #if os(iOS)
+            await showAlarms.cancelAll()
+            #endif
             shows = []
             return
         }
@@ -223,8 +267,18 @@ final class AppModel {
         if let error = outcome.apiError { appendLog("幕间演出拉取失败：\(error)") }
         if let error = outcome.calendarError { appendLog("日历读取失败：\(error)") }
 
+        // 权限在系统设置里被收回时，不能留下「开关开着但读不到」的假状态。
+        if outcome.calendarAccessDenied {
+            updateSettings { $0.showsUseCalendar = false }
+            calendarAccessNotice = "系统日历权限不可用，已自动关闭「读取系统日历」。请到「设置 → 隐私与安全性 → 日历」允许众妙访问后重新打开。"
+        }
+
         await syncShowReminders()
         await alignShowIsland()
+        #if os(iOS)
+        // 照旧由系统持有：这里只校正界面状态（系统里被删掉的、已响过的收尾）。
+        await showAlarms.reconcile()
+        #endif
     }
 
     /// 打开 App 也是开岛触发点之一：命中窗口就直接亮起来，不必等自动化。
@@ -277,6 +331,19 @@ final class AppModel {
         default:
             openShow(show)
         }
+    }
+
+    /// 处理 `zhongmiao://` 深链：小组件、系统日历事件、提醒事项、快捷指令都可回到这里。
+    ///
+    /// 只把链接翻译成 `pendingRoute`，页面切换交给 `RootView` 消费——
+    /// 冷启动时首帧可能还没渲染，靠状态而不是直接 push 才不会丢。
+    func handleDeepLink(_ url: URL) {
+        let link = DeepLink.parse(url)
+        guard let service = link.service else {
+            appendLog("未识别的深链：\(url.absoluteString)")
+            return
+        }
+        pendingRoute = Route(serviceID: service.serviceID, target: service.target)
     }
 
     private func openShow(_ show: Show) {

@@ -60,10 +60,16 @@ final class IntegrationCenter {
     private(set) var preferences: IntegrationPreferences
     private(set) var lastErrors: [String: String] = [:]
     private(set) var reminderCounts: [String: Int] = [:]
+    /// 已写进系统日历与提醒事项的条数（iOS）。
+    private(set) var systemReminderCounts: [String: Int] = [:]
+    /// 系统写入的结果说明；成功时为 nil。
+    private(set) var systemReminderNotes: [String: String] = [:]
     /// 提醒时刻/开关变更后 +1，打开中的原生页据此重排。
     private(set) var reminderRevision = 0
 
     private let scheduler = IntegrationReminderScheduler()
+    /// 由 AppModel 注册：用持久化快照重建某服务的提醒计划，不依赖页面是否打开。
+    private var reminderRebuilders: [String: @MainActor () async -> Void] = [:]
 
     init(secrets: SecretStore = SecretStore()) {
         self.secrets = secrets
@@ -118,9 +124,45 @@ final class IntegrationCenter {
     }
 
     func updatePreference(_ serviceID: String, _ transform: (inout IntegrationPreference) -> Void) {
+        let previous = preference(for: serviceID)
         preferences.update(serviceID, transform)
         IntegrationPreferencesStore.save(preferences)
+        let updated = preference(for: serviceID)
+
+        // 关闭提醒必须立即撤销已排程的条目：用户可能在「设置」里直接关，
+        // 此时没有原生页在场，不能等下次打开页面才生效。
+        if previous.remindersEnabled && !updated.remindersEnabled {
+            Task {
+                await scheduler.cancel(serviceID: serviceID)
+                reminderCounts[serviceID] = 0
+            }
+        }
+        if previous.systemRemindersEnabled && !updated.systemRemindersEnabled {
+            Task { await clearSystemReminders(serviceID: serviceID) }
+        }
+
+        // 开启或改时刻也要立即生效，而不是等用户再打开一次原生页。
+        // 重建动作由 AppModel 注册：用持久化快照重新生成计划，不依赖页面生命周期。
+        let reminderConfigurationChanged =
+            previous.remindersEnabled != updated.remindersEnabled ||
+            previous.reminderHour != updated.reminderHour ||
+            previous.reminderMinute != updated.reminderMinute ||
+            previous.eventLeadDays != updated.eventLeadDays ||
+            previous.systemRemindersEnabled != updated.systemRemindersEnabled
+        if reminderConfigurationChanged, updated.remindersEnabled || updated.systemRemindersEnabled {
+            Task { await rebuildReminders(serviceID: serviceID) }
+        }
         reminderRevision += 1
+    }
+
+    /// 注册某个服务的提醒重建动作。中心不持有页面模型，只用快照重新排程。
+    func registerReminderRebuilder(serviceID: String, _ action: @escaping @MainActor () async -> Void) {
+        reminderRebuilders[serviceID] = action
+    }
+
+    func rebuildReminders(serviceID: String) async {
+        guard let action = reminderRebuilders[serviceID] else { return }
+        await action()
     }
 
     /// 一次成功的业务请求本身就是凭据可用的证据；用于可选令牌应用
@@ -340,6 +382,7 @@ final class IntegrationCenter {
                 $0.lastAuthFailure = nil
             }
             Task { await scheduler.cancel(serviceID: serviceID) }
+            Task { await clearSystemReminders(serviceID: serviceID) }
         } catch {
             lastErrors[serviceID] = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
@@ -361,6 +404,51 @@ final class IntegrationCenter {
         )
         let counts = await scheduler.pendingCounts()
         reminderCounts[serviceID] = counts[serviceID] ?? 0
+        await syncSystemReminders(
+            serviceID: serviceID,
+            plans: plans,
+            enabled: preference.systemRemindersEnabled
+        )
+    }
+
+    /// 把同一批计划写进系统日历与提醒事项。
+    ///
+    /// 与本地通知共用一份计划，目的却不同：本地通知负责近期、受 64 条预算约束；
+    /// 系统条目由系统持有——App 被杀、描述文件过期都照旧到点，且不占通知预算，
+    /// 适合生日、纪念日这类远期项。macOS 暂不写入。
+    func syncSystemReminders(serviceID: String, plans: [PlannedReminder], enabled: Bool) async {
+        #if os(iOS)
+        // 默认关闭时绝不碰 EventKit：连 requestFullAccess 都不调用，避免新装设备
+        // 在用户没打开开关的情况下被要日历/提醒事项权限。
+        guard enabled else { return }
+        let anchors = plans.compactMap { SystemAnchor(reminder: $0) }
+        guard !anchors.isEmpty else {
+            systemReminderCounts[serviceID] = 0
+            systemReminderNotes[serviceID] = nil
+            return
+        }
+        let planned = SystemAnchorBudget.apply(to: anchors)
+        let outcome = await SystemCalendarWriter.sync(
+            serviceID: serviceID,
+            anchors: planned
+        )
+        systemReminderCounts[serviceID] = planned.count
+        systemReminderNotes[serviceID] = outcome.message
+        #endif
+    }
+
+    /// 关闭开关或清凭据时的独立清理入口。
+    ///
+    /// 不主动申请权限：只有系统已经授予完全访问、且存在「众妙」专用列表时才删除，
+    /// 这样默认关闭的用户永远不会看到授权弹窗。macOS 不写入，因此无需清理。
+    func clearSystemReminders(serviceID: String) async {
+        #if os(iOS)
+        let outcome = await SystemCalendarWriter.clear(serviceID: serviceID)
+        systemReminderCounts[serviceID] = 0
+        systemReminderNotes[serviceID] = (outcome.removed > 0 || outcome.failed > 0)
+            ? outcome.summary
+            : nil
+        #endif
     }
 
     func refreshReminderCounts() async {

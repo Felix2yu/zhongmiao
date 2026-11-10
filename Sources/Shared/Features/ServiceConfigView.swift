@@ -320,6 +320,11 @@ struct ServiceConfigView: View {
         Section {
             Toggle("启用本地提醒", isOn: preferenceBinding(\.remindersEnabled))
 
+            #if os(iOS)
+            Toggle("同时写入系统日历与提醒事项", isOn: systemRemindersBinding)
+                .accessibilityHint("会在系统日历与提醒事项里创建名为众妙的条目，关闭后自动清理")
+            #endif
+
             if integrationPreference.remindersEnabled {
                 DatePicker(
                     "提醒时刻",
@@ -335,10 +340,20 @@ struct ServiceConfigView: View {
 
                 LabeledContent("已排程", value: "\(model.integrations.reminderCounts[service.id] ?? 0) 条")
 
+                #if os(iOS)
+                if integrationPreference.systemRemindersEnabled {
+                    LabeledContent(
+                        "系统内",
+                        value: "\(model.integrations.systemReminderCounts[service.id] ?? 0) 条"
+                    )
+                    if let note = model.integrations.systemReminderNotes[service.id] {
+                        warningText(note)
+                    }
+                }
+                #endif
+
                 if model.authorization == .denied {
-                    Text("系统通知权限已关闭，提醒不会送达。请到系统设置里为众妙开启通知。")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
+                    warningText("系统通知权限已关闭，提醒不会送达。请到系统设置里为众妙开启通知。")
                 } else if model.authorization == .notDetermined {
                     Button {
                         Task { await model.requestNotificationPermission() }
@@ -350,8 +365,35 @@ struct ServiceConfigView: View {
         } header: {
             Text("提醒")
         } footer: {
-            Text("提醒按最近一次刷新的数据排程；修改时刻后回到原生页刷新即可重排。")
+            Text("关闭提醒会立即取消已排程的条目；开启或修改时刻后，会立即按已缓存的数据重排，尚未缓存过的应用需先打开一次。\(systemReminderFooter)")
         }
+    }
+
+    /// 橙色小字在浅色背景下对比度不足；用图标承担颜色，正文保持主文字色。
+    private func warningText(_ text: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.caption)
+                .foregroundStyle(.orange)
+                .accessibilityHidden(true)
+            Text(text)
+                .font(.caption)
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// 系统写入的说明。免费账号没有推送，这是唯一能长期可靠到点的通道。
+    private var systemReminderFooter: String {
+        #if os(iOS)
+        if integrationPreference.systemRemindersEnabled {
+            return "\n写入系统时会在「日历」与「提醒事项」里建立名为「众妙」的列表，"
+                + "只增删它自己写进去的条目。到点由系统触发，不占上面的 48 条预算。"
+        }
+        return "\n也可写入系统日历与提醒事项：由系统持有，App 不运行也到点，适合远期与每年重复的提醒。"
+        #else
+        return ""
+        #endif
     }
 
     // MARK: - 首页显示
@@ -504,6 +546,21 @@ struct ServiceConfigView: View {
             }
         )
     }
+
+    #if os(iOS)
+    /// 关闭系统写入时的清理由 `IntegrationCenter.updatePreference` 统一处理，
+    /// 保证从设置页和原生页改开关都走同一条路径。
+    private var systemRemindersBinding: Binding<Bool> {
+        Binding(
+            get: { integrationPreference.systemRemindersEnabled },
+            set: { newValue in
+                model.integrations.updatePreference(service.id) {
+                    $0.systemRemindersEnabled = newValue
+                }
+            }
+        )
+    }
+    #endif
 
     private var reminderTimeBinding: Binding<Date> {
         Binding(
