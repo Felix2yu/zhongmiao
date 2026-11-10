@@ -253,7 +253,8 @@ actor NotificationEngine {
     func markAllRead(serviceID: String?) async -> NotificationSnapshot {
         ledger.markAllRead(serviceID: serviceID)
         store.save(ledger)
-        await scheduler.setBadge(0)
+        // 按服务筛选时只清掉该服务的未读，角标仍要反映其他来源的未读数。
+        await scheduler.setBadge(ledger.unreadCount)
         return snapshot()
     }
 

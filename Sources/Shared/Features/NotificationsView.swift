@@ -18,6 +18,38 @@ struct NotificationsView: View {
                 permissionSection
             }
 
+            if let filterServiceID {
+                Section {
+                    HStack {
+                        Label(
+                            "仅显示 \(ServiceDisplay.name(for: filterServiceID))",
+                            systemImage: "line.3.horizontal.decrease.circle"
+                        )
+                        .font(.footnote)
+                        Spacer()
+                        Button("查看全部") { self.filterServiceID = nil }
+                            .font(.footnote)
+                    }
+                }
+            }
+
+            if filterServiceID == nil, !appSummaries.isEmpty {
+                Section {
+                    ForEach(appSummaries) { summary in
+                        Button {
+                            filterServiceID = summary.id
+                        } label: {
+                            summaryRow(summary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                } header: {
+                    Text("按应用")
+                } footer: {
+                    Text("点一个应用只看它的通知；未读数计入全部未读。")
+                }
+            }
+
             if model.snapshot.items.isEmpty {
                 Section {
                     EmptyStateView(
@@ -28,6 +60,17 @@ struct NotificationsView: View {
                         action: model.authorization == .notDetermined ? {
                             Task { await model.requestNotificationPermission() }
                         } : nil
+                    )
+                    .listRowBackground(Color.clear)
+                }
+            } else if filteredItems.isEmpty, let filterServiceID {
+                Section {
+                    EmptyStateView(
+                        symbol: "line.3.horizontal.decrease.circle",
+                        title: "当前筛选没有通知",
+                        message: "「\(ServiceDisplay.name(for: filterServiceID))」暂时没有通知。",
+                        actionTitle: "查看全部",
+                        action: { self.filterServiceID = nil }
                     )
                     .listRowBackground(Color.clear)
                 }
@@ -55,12 +98,16 @@ struct NotificationsView: View {
                     Divider()
 
                     Button {
+                        guard filteredUnreadCount > 0 else { return }
                         model.markAllRead(serviceID: filterServiceID)
                         model.toast = "已全部标记为已读"
                     } label: {
-                        Label("全部标为已读", systemImage: "checkmark.circle")
+                        Label(
+                            filteredUnreadCount > 0 ? "全部标为已读（\(filteredUnreadCount)）" : "没有未读",
+                            systemImage: "checkmark.circle"
+                        )
                     }
-                    .disabled(model.snapshot.unreadCount == 0)
+                    .disabled(filteredUnreadCount == 0)
 
                     Button {
                         model.syncNow(reason: "手动")
@@ -158,7 +205,7 @@ struct NotificationsView: View {
                     HStack(spacing: 6) {
                         Text(ServiceDisplay.name(for: item.serviceID))
                             .font(.caption2)
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(.secondary)
                         if item.deliveredAt == nil {
                             CapsuleTag(text: "待补发", systemImage: "clock.arrow.circlepath", tint: .orange)
                         }
@@ -178,6 +225,8 @@ struct NotificationsView: View {
             }
             .padding(.vertical, 2)
             .contentShape(Rectangle())
+            .accessibilityElement(children: .combine)
+            .accessibilityValue(item.isRead ? "已读" : "未读")
         }
         .buttonStyle(.plain)
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -220,6 +269,84 @@ struct NotificationsView: View {
         let items = model.snapshot.items
         guard let filterServiceID else { return items }
         return items.filter { $0.serviceID == filterServiceID }
+    }
+
+    /// 按应用汇总：未读多的在前，同一未读量按最近一条排序。
+    private struct AppSummary: Identifiable {
+        let id: String
+        let name: String
+        let unread: Int
+        let latest: NotificationItem
+    }
+
+    private var appSummaries: [AppSummary] {
+        Dictionary(grouping: model.snapshot.items, by: \.serviceID)
+            .compactMap { entry -> AppSummary? in
+                let items = entry.value
+                guard let latest = items.max(by: { $0.createdAt < $1.createdAt }) else { return nil }
+                return AppSummary(
+                    id: entry.key,
+                    name: ServiceDisplay.name(for: entry.key),
+                    unread: items.lazy.filter { !$0.isRead }.count,
+                    latest: latest
+                )
+            }
+            .sorted { lhs, rhs in
+                if lhs.unread != rhs.unread { return lhs.unread > rhs.unread }
+                return lhs.latest.createdAt > rhs.latest.createdAt
+            }
+    }
+
+    private func summaryRow(_ summary: AppSummary) -> some View {
+        HStack(spacing: 10) {
+            if let service = ServiceDisplay.glyph(for: summary.id) {
+                ServiceGlyph(service: service, size: 26)
+            } else {
+                Image(systemName: "bell")
+                    .font(.system(size: 12))
+                    .frame(width: 26, height: 26)
+                    .background(Color.zmCard, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(summary.name)
+                        .font(.subheadline.weight(summary.unread > 0 ? .semibold : .regular))
+                        .foregroundStyle(.primary)
+                    if summary.unread > 0 {
+                        Text("\(summary.unread)")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(Color.red, in: Capsule())
+                            .accessibilityLabel("\(summary.unread) 条未读")
+                    }
+                    Spacer(minLength: 4)
+                    Text(RelativeTime.short(summary.latest.createdAt))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Text(summary.latest.title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Image(systemName: "chevron.right")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.vertical, 2)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(summary.name)，\(summary.unread) 条未读，最近一条：\(summary.latest.title)")
+        .accessibilityHint("只看这个应用的通知")
+    }
+
+    /// 批量操作只针对当前可见范围，避免“按钮可点但没有任何变化”。
+    private var filteredUnreadCount: Int {
+        filteredItems.lazy.filter { !$0.isRead }.count
     }
 
     private var groupedDays: [(day: Date, items: [NotificationItem])] {

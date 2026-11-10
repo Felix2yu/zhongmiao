@@ -9,12 +9,25 @@ import AppKit
 struct CatalogView: View {
 
     @Environment(AppModel.self) private var model
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var searchText = ""
     @State private var editingService: ServiceDefinition?
+    /// 今日概览：各应用缓存里逾期、今天与明天的事。
+    @State private var digestItems: [HomeDigestItem] = []
+    /// 跨应用搜索命中的条目（应用名仍由卡片区展示）。
+    @State private var searchHits: [HomeSearchHit] = []
 
-    private let columns = [
-        GridItem(.adaptive(minimum: 158, maximum: 260), spacing: 12, alignment: .top)
-    ]
+    /// 大字号下两列会挤成竖条，直接退化成单列。
+    private var columns: [GridItem] {
+        [GridItem(
+            .adaptive(
+                minimum: dynamicTypeSize.isAccessibilitySize ? 300 : 158,
+                maximum: dynamicTypeSize.isAccessibilitySize ? .infinity : 260
+            ),
+            spacing: 12,
+            alignment: .top
+        )]
+    }
 
     var body: some View {
         ScrollView {
@@ -33,6 +46,14 @@ struct CatalogView: View {
                         Text("换个关键词试试，隐藏的应用也能搜到。")
                     }
                     .padding(.top, 32)
+                }
+
+                if !isSearching, !digestItems.isEmpty {
+                    HomeDigestCard(items: digestItems)
+                }
+
+                if isSearching, !searchHits.isEmpty {
+                    HomeSearchHitsCard(hits: searchHits)
                 }
 
                 ForEach(groups, id: \.category) { group in
@@ -61,7 +82,7 @@ struct CatalogView: View {
         }
         .background(Color.zmGrouped.ignoresSafeArea())
         .navigationTitle("众妙")
-        .searchable(text: $searchText, prompt: "搜索应用")
+        .searchable(text: $searchText, prompt: "搜索应用或条目")
         .safeAreaInset(edge: .top, spacing: 0) {
             if !model.network.isOnline {
                 OfflineBanner(text: "当前离线，已缓存的应用仍可打开")
@@ -81,6 +102,19 @@ struct CatalogView: View {
                 .disabled(model.isSyncing)
                 .accessibilityLabel("同步所有应用的通知")
             }
+        }
+        .onAppear {
+            Task { await reloadDigest() }
+        }
+        .task(id: searchText) {
+            guard isSearching else {
+                searchHits = []
+                return
+            }
+            // 输入时先等一下，避免每个按键都扫一遍所有应用的缓存。
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            guard !Task.isCancelled else { return }
+            searchHits = await HomeAggregator.search(searchText, center: model.integrations)
         }
         .sheet(item: $editingService) { service in
             NavigationStack {
@@ -104,9 +138,20 @@ struct CatalogView: View {
     }
 
     private var searchHasNoMatch: Bool {
-        guard isSearching else { return false }
+        guard isSearching, searchHits.isEmpty else { return false }
         let trimmed = searchText.trimmingCharacters(in: .whitespaces)
         return ServiceCatalog.all.allSatisfy { !matches($0, trimmed) }
+    }
+
+    /// 今日概览只读缓存，回到首页时重新算一次即可，不触发任何网络请求。
+    private func reloadDigest() async {
+        let items = await HomeAggregator.digest(center: model.integrations)
+        let hidden = Set(
+            ServiceCatalog.all
+                .filter { model.settings.preference(for: $0).isHidden }
+                .map(\.id)
+        )
+        digestItems = items.filter { !hidden.contains($0.serviceID) }
     }
 
     /// 隐藏只作用于浏览态。搜索是明确意图，隐藏的服务照样能被搜到，
@@ -212,7 +257,7 @@ struct CatalogView: View {
                 .foregroundStyle(.secondary)
             Text("「离线可用」指该应用自带 Service Worker 缓存，断网也能打开，不代表服务当前的状态。全部应用经 Nginx 以 HTTPS 子域名提供，内网端口直连只用于排障。")
                 .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.top, 8)
@@ -232,6 +277,7 @@ struct ServiceCard: View {
     var isPinned = false
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -242,7 +288,7 @@ struct ServiceCard: View {
                     Image(systemName: "pin.fill")
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(.tertiary)
-                        .accessibilityLabel("已置顶")
+                        .accessibilityHidden(true)
                 }
                 if unread > 0 {
                     Text("\(unread)")
@@ -259,11 +305,11 @@ struct ServiceCard: View {
                 Text(service.name)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
-                    .lineLimit(1)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
                 Text(service.summary)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -285,7 +331,11 @@ struct ServiceCard: View {
             }
         }
         .padding(12)
-        .frame(maxWidth: .infinity, minHeight: 132, alignment: .topLeading)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: dynamicTypeSize.isAccessibilitySize ? 160 : 132,
+            alignment: .topLeading
+        )
         .background {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color.zmCard)
@@ -303,7 +353,11 @@ struct ServiceCard: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(service.accessibilityDescription)
         .accessibilityHint("打开 \(service.name)")
-        .accessibilityValue(unread > 0 ? "\(unread) 条未读" : "")
+        .accessibilityValue(
+            [unread > 0 ? "\(unread) 条未读" : nil, isPinned ? "已置顶" : nil]
+                .compactMap { $0 }
+                .joined(separator: "，")
+        )
     }
 }
 
