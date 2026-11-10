@@ -11,7 +11,7 @@
 | A2 | 开演前 **4 小时**（可配）本地通知必达，App 被杀也到点 | 真机：排一条近场演出 |
 | A3 | 岛内显示剧名 / 场馆 / 座位；倒计时自行走动，并在「距开演 / 演出中 / 已结束」三态间切换 | 真机 |
 | A4 | 散场 +30 分钟自动收起，不残留 | 真机 |
-| A5 | 数据源可切换：幕间 API 为主、系统日历（幕间 CalDAV）兜底 | 设置页开关 |
+| A5 | 数据源可切换：幕间 API 为主、系统日历（幕间 CalDAV）兜底；日历源默认关闭，用户显式打开时才申请读取权限 | 设置页开关 |
 | A6 | iOS / macOS 两个 scheme 都能编译，ZhongmiaoCore 单测不依赖模拟器 | `xcodebuild` + `swift test` |
 
 ## 1. 已核实的事实（计划的地基）
@@ -118,6 +118,9 @@
    换场时先结束旧的再开新的。
 8. **令牌为空也能用**：幕间免鉴权部署时直接放行；401 不弹窗、只在诊断日志里记一条。
 9. **日历通道只读**，避免与幕间 CalDAV 产生回写冲突。
+10. **日历通道默认关闭**：新装不申请任何日历权限；用户在「设置 → 演出提醒」里打开「读取系统日历」时才发起一次
+    `requestFullAccessToEvents`。被拒或事后在系统设置里收回权限，开关回落到关闭并显示原因，
+    不留「开着但读不到」的假状态。旧存档里已有该键的设置按原值保留，缺键时仍视为开启。
 
 ## 5. 触发矩阵
 
@@ -184,6 +187,34 @@ cd Packages/ZhongmiaoCore && swift test
 **需你在真机验证**（本机无模拟器 runtime，我不会声称跑过界面）：岛是否出现、倒计时是否走动、
 8 小时后是否自动消失、通知是否到点、4 个自动化时刻是否都触发、**锁屏状态下自动化是否执行**、
 7 天证书过期后自动化是否静默失效。
+
+**老用户升级（日历源默认值变更）**：新装 `showsUseCalendar = false`；老存档里有这个键时严格按原值，
+缺键时按 `true` 兼容旧行为。真机步骤：先用旧包把「读取系统日历」打开或关闭各装一次，再覆盖安装新包，
+确认开关状态与升级前一致、启动不弹日历授权。没有旧包时，可在模拟器直接写 UserDefaults 存档复现：
+
+```bash
+UDID=<模拟器 UDID>
+DATA=$(xcrun simctl get_app_container "$UDID" im.yufei.zhongmiao data)
+PLIST="$DATA/Library/Preferences/im.yufei.zhongmiao.plist"
+xcrun simctl terminate "$UDID" im.yufei.zhongmiao
+xcrun simctl shutdown "$UDID"
+B64=$(printf '%s' '{"showsUseCalendar":true}' | base64 | tr -d '\n')
+plutil -create xml1 "$PLIST"
+plutil -insert 'zhongmiao\.settings\.v1' -data "$B64" "$PLIST"
+xcrun simctl boot "$UDID" && xcrun simctl bootstatus "$UDID" -b
+xcrun simctl launch "$UDID" im.yufei.zhongmiao
+plutil -extract 'zhongmiao\.settings\.v1' raw -o - "$PLIST" | base64 --decode
+```
+
+| 存档 | 日历权限 | 预期 |
+| :-- | :-- | :-- |
+| `true` | 已授权 | 启动不弹窗，开关保持开启 |
+| `true` | 未授权 | 启动不弹窗，开关回落为关闭并持久化 `false` |
+| 缺键 | 未授权 | 按旧默认 `true` 处理，随后同样回落为关闭并持久化 |
+| `false` | 任意 | 保持关闭，全程不请求权限 |
+
+自动回落后的持久化要等 `cfprefsd` 刷盘，或让 App 进一次后台（启动系统「设置」即可），
+再读上面的存档确认。
 
 ## 9. 风险与缓解
 
@@ -366,3 +397,57 @@ tools/renew-signing.sh --force   # 排障或首次验证：无论如何重建一
 - 覆盖安装**不清数据**，`shows.json` 与设置都保留。
 - 免费账号同时最多 10 个 App ID、3 台设备、每台 3 个 App——家里设备多的话要留意。
 - 想彻底摆脱，只能付费（¥688/年）：证书与描述文件变一年有效期。
+
+## 15. 开演闹钟（AlarmKit）
+
+### 为什么还要一条通道
+
+本地通知在免费个人账号下会被降级成 `.active`：专注模式一开，开演提醒就无声无息地躺进通知中心。
+而"这场演出要迟到了"恰好是最不该被吞的一类。AlarmKit（iOS 26+）的闹钟由**系统**持有，
+覆盖静音与专注模式，并且**不属于付费能力**——官方能力表里没有它，只要一个使用描述键与用户授权。
+
+### 与本地通知的分工
+
+| | 本地通知 | 开演闹钟 |
+| :-- | :-- | :-- |
+| 默认状态 | 开启（演出总开关内） | **关闭**，逐场手动开 |
+| 提前量 | 4 小时（设置可调） | 30 / 60 / 90 / 120 分钟，逐场记 |
+| 专注模式 | 被静默降级 | 照常响 |
+| 数量上限 | 单 App 64 条 | 自限 5 个（系统另有自己的上限） |
+| 谁能关掉它 | 通知总开关 | 用户在详情里关，或在系统「时钟」里删 |
+
+两者**不互相替代**：闹钟是加强项，只在用户明确"这场必须准时"时才出现。
+
+### 实现要点
+
+- `ZhongmiaoCore/ShowAlarm.swift`：`ShowAlarmPlan` 与 `ShowAlarm`。标识符、时刻、提前量档位、
+  可排程判断、上限裁剪都是纯函数，所以 `swift test` 能覆盖（AlarmKit 本身在模拟器和 macOS 上跑不了）。
+- `Sources/iOS/ShowAlarmScheduler.swift`：`AlarmManager.shared` 的封装。授权、排、撤、
+  以及用系统列表校正本地留痕（用户在系统「时钟」里删掉闹钟时，开关要跟着变）。
+- `Sources/iOS/ShowAlarmSection.swift`：演出详情里的开关。**默认关闭**——会不会响由用户决定。
+- 幂等：`Alarm.id` 由演出 id 单向散列（FNV-1a 两轮拼 128 位）得到，同一场永远同一个 id，
+  重复排是覆盖而不是堆积。代价是不可逆，所以本地留一份 `show-alarms.json`
+  （演出 id ↔ UUID ↔ 响铃时刻 ↔ 提前量），这也是界面显示开关状态的依据。
+- 兼容性：文件开头是 `@preconcurrency import AlarmKit`。AlarmKit 的类型还没标 Sendable，
+  本项目开了 `SWIFT_STRICT_CONCURRENCY: complete`，不降级过不了编译。
+
+### 边界（这次没做的）
+
+- **倒计时界面**（`CountdownDuration.preAlert`）没开：响铃前 5 分钟的倒计时需要额外的呈现逻辑，
+  先保证"到点一定会响"这一件事可靠。
+- **自定义闹钟界面**没做：`AlarmAttributes` 是 `ActivityAttributes`，理论上可以在 Widget Extension 里
+  画自定义倒计时/响铃视图，但那要把 `ShowAlarmMetadata` 挪进 `ZhongmiaoCore` 供两个 target 共用，
+  收益不抵复杂度。
+- **闹钟上的按钮**（`secondaryIntent`「稍后再响」）没接，系统默认的停止按钮够用。
+- macOS 不做：macOS SDK 里没有 AlarmKit。
+
+### 验收
+
+| 编号 | 验收项 | 判定方式 |
+| :-- | :-- | :-- |
+| B1 | 默认一场闹钟都没有 | 真机：进任意演出详情，开关是关的 |
+| B2 | 打开后系统「时钟」里出现对应闹钟，时刻 = 开演 − 提前量 | 真机 |
+| B3 | 专注模式下闹钟照常响 | 真机：开专注，排一个 30 分钟后的闹钟 |
+| B4 | 在系统「时钟」里删掉闹钟后，众妙里开关回到关闭 | 真机：删完重进详情 |
+| B5 | 同一场反复开关不堆积 | 系统「时钟」里始终只有一个 |
+| B6 | 关掉演出总开关时闹钟一并清掉 | 设置页关开关后看系统「时钟」 |

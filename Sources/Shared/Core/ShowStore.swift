@@ -8,6 +8,8 @@ struct ShowRefreshOutcome: Sendable {
     var apiError: String?
     /// 系统日历的失败原因，成功时为 nil。
     var calendarError: String?
+    /// 失败原因是「没有日历读取权限」。调用方据此把开关回落，别留下开着却读不到的状态。
+    var calendarAccessDenied = false
 }
 
 /// 演出缓存的持有者：落盘、合并、刷新。
@@ -81,6 +83,7 @@ actor ShowStore {
                 working.markFetched(.calendar)
             } catch {
                 outcome.calendarError = error.localizedDescription
+                outcome.calendarAccessDenied = error is CalendarShowSource.AccessDenied
             }
         }
         #endif

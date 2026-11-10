@@ -100,12 +100,18 @@ struct AppSettings: Codable, Hashable, Sendable {
     /// 是否从幕间 API 拉取演出。
     var showsUseMujianAPI: Bool
     /// 是否从系统日历读取演出（幕间 CalDAV 同步过去的事件）。
+    ///
+    /// 新装默认关闭：只有用户在设置里显式打开时才申请日历读取权限，
+    /// 避免首次启动就弹系统授权。
     var showsUseCalendar: Bool
     /// 日历兜底的额外关键词，逗号分隔。
     ///
     /// 默认只认幕间同步过去的事件（UID 带 `@mujian`）。要连「在日历里自己建的演出」
     /// 也一起收，就在这里填关键词（匹配事件标题或日历名称），否则把工作会议也当成演出。
     var showsCalendarKeywords: String
+    /// 开演闹钟的提前量（分钟）。只对用户在演出详情里**逐场开启**的闹钟生效，
+    /// 与上面那条默认就有的本地通知互不干扰。
+    var showsAlarmLeadMinutes: Int
 
     init(
         addressing: AddressSettings = .default,
@@ -121,8 +127,9 @@ struct AppSettings: Codable, Hashable, Sendable {
         showsReminderLeadHours: Int = 4,
         showsIslandLeadHours: Int = 8,
         showsUseMujianAPI: Bool = true,
-        showsUseCalendar: Bool = true,
-        showsCalendarKeywords: String = ""
+        showsUseCalendar: Bool = false,
+        showsCalendarKeywords: String = "",
+        showsAlarmLeadMinutes: Int = ShowAlarm.defaultLeadMinutes
     ) {
         self.addressing = addressing
         self.servicePreferences = servicePreferences
@@ -139,6 +146,7 @@ struct AppSettings: Codable, Hashable, Sendable {
         self.showsUseMujianAPI = showsUseMujianAPI
         self.showsUseCalendar = showsUseCalendar
         self.showsCalendarKeywords = showsCalendarKeywords
+        self.showsAlarmLeadMinutes = showsAlarmLeadMinutes
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -148,6 +156,7 @@ struct AppSettings: Codable, Hashable, Sendable {
         case keepExternalLinksInApp
         case showsEnabled, showsReminderLeadHours, showsIslandLeadHours
         case showsUseMujianAPI, showsUseCalendar, showsCalendarKeywords
+        case showsAlarmLeadMinutes
     }
 
     /// 逐字段解码，新增字段缺失时回落到默认值 —— 旧版本存下的设置不能因为
@@ -167,8 +176,12 @@ struct AppSettings: Codable, Hashable, Sendable {
         showsReminderLeadHours = try container.decodeIfPresent(Int.self, forKey: .showsReminderLeadHours) ?? 4
         showsIslandLeadHours = try container.decodeIfPresent(Int.self, forKey: .showsIslandLeadHours) ?? 8
         showsUseMujianAPI = try container.decodeIfPresent(Bool.self, forKey: .showsUseMujianAPI) ?? true
+        // 旧存档没有这个键时保持原来的开启行为，别让升级把老用户的日历来源静默关掉；
+        // 新装没有存档，走 `init()` 的默认值 false。
         showsUseCalendar = try container.decodeIfPresent(Bool.self, forKey: .showsUseCalendar) ?? true
         showsCalendarKeywords = try container.decodeIfPresent(String.self, forKey: .showsCalendarKeywords) ?? ""
+        showsAlarmLeadMinutes = try container.decodeIfPresent(Int.self, forKey: .showsAlarmLeadMinutes)
+            ?? ShowAlarm.defaultLeadMinutes
     }
 
     // MARK: 演出提醒派生值
@@ -188,6 +201,11 @@ struct AppSettings: Codable, Hashable, Sendable {
             .split(separator: ",")
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
+    }
+
+    /// 闹钟提前量：归一到预设档位，避免出现「提前 7 分钟」这种没用的值。
+    var showsAlarmLead: Int {
+        ShowAlarm.clampedLead(showsAlarmLeadMinutes)
     }
 
     func preference(for service: ServiceDefinition) -> ServicePreference {

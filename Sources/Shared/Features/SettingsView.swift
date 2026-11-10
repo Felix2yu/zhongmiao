@@ -121,7 +121,13 @@ struct SettingsView: View {
                     Toggle("从幕间拉取", isOn: $model.settings.showsUseMujianAPI)
 
                     #if os(iOS)
-                    Toggle("读取系统日历", isOn: $model.settings.showsUseCalendar)
+                    Toggle("读取系统日历", isOn: calendarAccessBinding)
+
+                    if let notice = model.calendarAccessNotice {
+                        Text(notice)
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
 
                     TextField("日历关键词（逗号分隔）", text: $model.settings.showsCalendarKeywords)
                         .zmPlainTextInput()
@@ -131,6 +137,19 @@ struct SettingsView: View {
                         Text("\(model.shows.count) 场")
                             .foregroundStyle(model.shows.isEmpty ? .secondary : .primary)
                     }
+
+                    #if os(iOS)
+                    Picker("新闹钟提前", selection: $model.settings.showsAlarmLeadMinutes) {
+                        ForEach(ShowAlarm.leadOptions, id: \.self) { minutes in
+                            Text("\(minutes) 分钟").tag(minutes)
+                        }
+                    }
+
+                    LabeledContent("开演闹钟") {
+                        Text("\(model.showAlarms.count) / \(ShowAlarm.maxConcurrent)")
+                            .foregroundStyle(model.showAlarms.count == 0 ? .secondary : .primary)
+                    }
+                    #endif
 
                     if let next = model.shows.first(where: { $0.startsAt > .now }) {
                         LabeledContent("下一场") {
@@ -278,6 +297,31 @@ struct SettingsView: View {
 
     // MARK: 演出提醒
 
+    #if os(iOS)
+    /// 只有用户主动打开时才申请日历读取权限；被拒就保持关闭并给出原因，
+    /// 避免出现「开关开着但读不到」的假状态。
+    private var calendarAccessBinding: Binding<Bool> {
+        Binding(
+            get: { model.settings.showsUseCalendar },
+            set: { newValue in
+                guard newValue else {
+                    model.calendarAccessNotice = nil
+                    model.updateSettings { $0.showsUseCalendar = false }
+                    return
+                }
+                Task {
+                    guard await CalendarShowSource.requestAccess() else {
+                        model.calendarAccessNotice = "没有拿到日历权限，开关保持关闭。请到「设置 → 隐私与安全性 → 日历」允许众妙访问后再打开。"
+                        return
+                    }
+                    model.calendarAccessNotice = nil
+                    model.updateSettings { $0.showsUseCalendar = true }
+                }
+            }
+        )
+    }
+    #endif
+
     /// 演出相关的设置指纹。任一字段变动都重刷一次，省去给七个字段各挂一个 onChange。
     private var showSettingsFingerprint: String {
         let settings = model.settings
@@ -305,9 +349,9 @@ struct SettingsView: View {
 
     static var showFooter: String {
         #if os(iOS)
-        "演出时间取自幕间，也会读系统日历里「幕间」同步过去的事件。提醒走本地通知，App 被杀也照常到点。灵动岛最多常驻 8 小时，而 iOS 不允许 App 在精确时刻自己启动，所以要建两个快捷指令自动化（每天 10:00、15:00）跑「开启演出盯场」；演出前打开众妙也会自动开岛。幕间访问令牌在「服务与接入 → 幕间」里填写，这里读的就是那一份。"
+        "演出时间取自幕间；「读取系统日历」默认关闭，打开时才申请一次日历读取权限，用系统日历里「幕间」同步过去的事件兜底。提醒走本地通知，App 被杀也照常到点。灵动岛最多常驻 8 小时，而 iOS 不允许 App 在精确时刻自己启动，所以要建两个快捷指令自动化（每天 10:00、15:00）跑「开启演出盯场」；演出前打开众妙也会自动开岛。开演闹钟是另一条通道：默认一场都不开，在演出详情里逐场打开后由系统持有，会覆盖静音与专注模式。幕间访问令牌在「服务与接入 → 幕间」里填写，这里读的就是那一份。"
         #else
-        "演出时间取自幕间，也会读系统日历里「幕间」同步过去的事件。提醒走本地通知，即便 App 已退出也照常到点。幕间访问令牌在「服务与接入 → 幕间」里填写，这里读的就是那一份。"
+        "演出时间取自幕间。提醒走本地通知，即便 App 已退出也照常到点。幕间访问令牌在「服务与接入 → 幕间」里填写，这里读的就是那一份。"
         #endif
     }
 }

@@ -15,11 +15,20 @@ enum CalendarShowSource {
         var description: String { "没有日历读取权限" }
     }
 
+    /// 只读已授权的日历。未授权时直接抛错，**绝不在这里弹授权框**——
+    /// 授权只由用户主动打开「读取系统日历」时经 `requestAccess()` 发起。
     static func fetchUpcoming(days: Int, keywords: [String]) async throws -> [Show] {
+        guard EKEventStore.authorizationStatus(for: .event) == .fullAccess else {
+            throw AccessDenied()
+        }
+        return EventStoreBox().read(days: days, keywords: keywords)
+    }
+
+    /// 用户主动打开开关时调用一次；已授权直接返回 true，不会重复弹窗。
+    static func requestAccess() async -> Bool {
+        if EKEventStore.authorizationStatus(for: .event) == .fullAccess { return true }
         let box = EventStoreBox()
-        let granted = try await box.store.requestFullAccessToEvents()
-        guard granted else { throw AccessDenied() }
-        return box.read(days: days, keywords: keywords)
+        return (try? await box.store.requestFullAccessToEvents()) ?? false
     }
 }
 
@@ -54,7 +63,7 @@ private final class EventStoreBox: @unchecked Sendable {
     /// 两条判据取或：落在「幕间」日历里（默认路径），或命中用户填的关键词。
     /// 关键词为空时只走第一条——否则会把工作会议也当成演出。
     private func isShow(_ event: EKEvent, keywords: [String]) -> Bool {
-        let calendarName = event.calendar.title ?? ""
+        let calendarName = event.calendar.title
         if calendarName.localizedCaseInsensitiveContains("幕间") { return true }
         guard !keywords.isEmpty else { return false }
 
@@ -69,8 +78,9 @@ private final class EventStoreBox: @unchecked Sendable {
 
         // `eventIdentifier` 在同一台设备的日历数据库里稳定，够做通知去重键；
         // 它不跨设备、也不跨重新订阅，所以加前缀标明来源，便于排查。
+        guard let identifier = event.eventIdentifier else { return nil }
         return Show(
-            id: "cal-\(event.eventIdentifier)",
+            id: "cal-\(identifier)",
             name: title,
             venue: event.location,
             startsAt: event.startDate,

@@ -74,7 +74,12 @@ targets:
           NSAllowsArbitraryLoadsInWebContent: true
           NSAllowsLocalNetworking: true
         NSLocalNetworkUsageDescription: 众妙需要访问局域网中的自建服务（如慎始、货殖等）。
-        NSCalendarsUsageDescription: 众妙需要读取日历中的演出时间，用于开演前的提醒与灵动岛。
+        NSCalendarsUsageDescription: 众妙仅在你开启相关功能时读取日历中的演出时间，并把生日、纪念日等提醒写入名为「众妙」的日历。
+        # 完整访问而非只写：写入后还要能读回，才能做幂等更新与清理。
+        NSCalendarsFullAccessUsageDescription: 众妙仅在你开启相关功能时读取日历中的演出时间，并把生日、纪念日等提醒写入名为「众妙」的日历，交给系统在到点时提醒。
+        NSRemindersFullAccessUsageDescription: 众妙需要把养护、日记与任务提醒写入名为「众妙」的提醒列表，由系统在到点时提醒。
+        # 开演闹钟（AlarmKit）。只在用户在演出详情里手动打开时才排，默认一个都不排。
+        NSAlarmKitUsageDescription: 众妙需要为你在演出详情里打开的「开演闹钟」创建系统闹钟，到点时由系统响铃。
         NSCameraUsageDescription: 上传照片或扫描内容时需要使用相机。
         NSPhotoLibraryUsageDescription: 从相册选择图片上传到你的自建服务。
         NSMicrophoneUsageDescription: 录制语音时需要使用麦克风。
@@ -85,6 +90,13 @@ targets:
           - im.yufei.zhongmiao.refresh
         # 允许本 App 开启实时活动（灵动岛 / 锁屏卡片）。这是 Info.plist 键，不是付费能力。
         NSSupportsLiveActivities: true
+        # 自定义 URL scheme。免费账号拿不到 Associated Domains，Universal Links 不可用，
+        # 深链（小组件、日历事件、通知回跳、快捷指令）只能走这一条路。
+        CFBundleURLTypes:
+          - CFBundleTypeRole: Editor
+            CFBundleURLName: im.yufei.zhongmiao
+            CFBundleURLSchemes:
+              - zhongmiao
 
   ZhongmiaoWidget:
     type: app-extension
@@ -144,6 +156,11 @@ targets:
         NSLocalNetworkUsageDescription: 众妙需要访问局域网中的自建服务。
         NSCameraUsageDescription: 上传照片时需要使用相机。
         NSPhotoLibraryUsageDescription: 从相册选择图片上传到你的自建服务。
+        CFBundleURLTypes:
+          - CFBundleTypeRole: Editor
+            CFBundleURLName: im.yufei.zhongmiao
+            CFBundleURLSchemes:
+              - zhongmiao
 
   ZhongmiaoUITests:
     type: bundle.ui-testing

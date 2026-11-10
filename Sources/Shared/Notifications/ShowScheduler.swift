@@ -111,9 +111,10 @@ final class ShowScheduler: @unchecked Sendable {
         content.subtitle = "距开演 \(Self.hours(lead: show.startsAt.timeIntervalSince(date)))"
         content.categoryIdentifier = Self.categoryIdentifier
         content.sound = .default
-        // 需要授权的能力，免费个人账号下可能被系统降级为普通通知。
-        // 即便降级也照样投递，只是不穿透专注模式——所以不能依赖它做唯一保障。
-        content.interruptionLevel = .timeSensitive
+        // 写成 `.active` 而不是 `.timeSensitive`：后者需要付费会员才有的
+        // Time Sensitive 能力，免费档会被静默降级，写了也穿透不了专注模式。
+        // 到点必达靠的是本地通知本身（App 被杀也投递），不依赖中断级别。
+        content.interruptionLevel = .active
         content.userInfo = [
             "showID": show.id,
             "url": show.url?.absoluteString ?? ""

@@ -219,6 +219,28 @@ xcrun simctl launch --terminate-running-process booted im.yufei.zhongmiao
 | 月汐 | 下次周期倒计时，文案脱敏（只写「有新的周期提醒」） |
 | 幕间 | 沿用现有 `ShowScheduler`，不重复排 |
 
+### 写入系统日历与提醒事项
+
+本地通知之外多一条通道，**由系统持有**：App 被杀、描述文件 7 天过期都照旧到点，
+也不占 48 条通知预算。免费个人账号没有 APNs，这是唯一能长期可靠到点的手段
+（`docs/推送方案.md` 的 APNs 中继在此账号条件下不可实施，已冻结）。
+
+- **开关**：每个应用一个 `systemRemindersEnabled`，默认**关闭**——写进用户日历是有
+  侵入性的操作，必须显式开启。开启后与本地通知共用同一份 `PlannedReminder` 计划。
+- **通道选择**：生日/纪念日这类年度项写**日历**（`EKEvent` + 每年 recurrence，
+  保留提醒时刻，不转成全天）；其余有明确时刻的写**提醒事项**（`EKReminder` + 到期时间）。
+  农历日期无法用 EventKit 的年度规则表达，仍写提醒事项并按次更新。见 `SystemAnchor.channel`。
+- **幂等**：`EKEvent` 没有可自由写入的业务字段，所以把 `zm-anchor:<identifier>`
+  作为一行写进备注，同步时按它匹配更新；标识来自 `PlannedReminder` 的 id
+  （`integration.<service>.<kind>.<key>.<date>`），各应用 Planner 不需要改。
+- **安全红线**：只在众妙自建的「众妙」日历/提醒列表里操作；建不出来就**整体跳过**，
+  绝不退到用户默认日历里写入；也只删除带锚点标记、且本轮计划里已不存在的条目。
+- **预算**：每应用 60 条、合计 200 条（`SystemAnchorBudget`），防止刷爆用户日历。
+- **回跳**：日历事件写 `url` 字段，提醒事项没有该字段、深链落在备注里；
+  两者都是 `zhongmiao://service/<id>?target=&id=`（免费账号没有 Universal Links）。
+- 代码：`ZhongmiaoCore/Integration/SystemAnchor.swift`（纯逻辑，可单测）+
+  `Sources/iOS/SystemCalendarWriter.swift`（EventKit 写入，仅 iOS）。
+
 ## 8. 各应用数据流
 
 ### 货殖（P0，唯一有金额写入）

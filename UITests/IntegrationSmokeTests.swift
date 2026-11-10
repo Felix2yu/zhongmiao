@@ -28,6 +28,21 @@ final class IntegrationSmokeTests: XCTestCase {
         return app
     }
 
+    /// 按标题定位开关：详情页里有多个开关，靠顺序取会点错。
+    private static func named(_ title: String) -> NSPredicate {
+        NSPredicate(format: "label CONTAINS %@ OR identifier CONTAINS %@", title, title)
+    }
+
+    /// 系统授权弹窗上的「允许」。中英文都认，找不到就别乱点。
+    private static func tapAllow(in alert: XCUIElement) -> Bool {
+        let allow = alert.buttons.matching(
+            NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@ OR label CONTAINS[c] %@", "允许", "好", "Allow")
+        ).firstMatch
+        guard allow.exists else { return false }
+        allow.tap()
+        return true
+    }
+
     private func attach(_ name: String) {
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         attachment.name = name
@@ -59,7 +74,8 @@ final class IntegrationSmokeTests: XCTestCase {
         attach("mujian-detail")
 
         // 真的去点「已观看」，验证写回不是只改本地状态。
-        let watched = app.switches.firstMatch
+        // 必须按名字定位：详情里现在「开演闹钟」排在前面，firstMatch 会点到它。
+        let watched = app.switches.matching(Self.named("已观看")).firstMatch
         XCTAssertTrue(watched.waitForExistence(timeout: 8))
         let before = watched.value as? String
         // 开关在 List 行里直接 tap() 常打不中，点开关本体右侧更稳。
@@ -68,6 +84,42 @@ final class IntegrationSmokeTests: XCTestCase {
         attach("mujian-watched-after")
         let after = app.switches.firstMatch.value as? String
         XCTAssertNotEqual(before, after, "已观看开关没有变化")
+    }
+
+    /// 幕间：开演闹钟**默认关闭**，打开后要给出响铃时刻（系统拒绝授权时也要给出提示，不能静默）。
+    func testMujianAlarmDefaultsOff() {
+        let app = launch("mujian")
+        XCTAssertTrue(app.staticTexts["未来 14 天"].waitForExistence(timeout: 15))
+
+        let firstRow = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "易俗社")).firstMatch
+        XCTAssertTrue(firstRow.waitForExistence(timeout: 10))
+        firstRow.tap()
+        Thread.sleep(forTimeInterval: 2)
+
+        let alarm = app.switches.matching(Self.named("开演闹钟")).firstMatch
+        XCTAssertTrue(alarm.waitForExistence(timeout: 8), "演出详情里没有开演闹钟开关")
+        XCTAssertEqual(alarm.value as? String, "0", "闹钟默认是开启的——它必须是用户主动打开的")
+
+        // 首次开启会弹系统授权（由 SpringBoard 呈现，不在 App 的层级树里）。
+        addUIInterruptionMonitor(withDescription: "系统闹钟授权") { alert in
+            Self.tapAllow(in: alert)
+        }
+
+        alarm.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        Thread.sleep(forTimeInterval: 2)
+        // 弹窗未必被 monitor 接住，兜底直接找 SpringBoard 的弹窗点一次。
+        let system = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        if system.alerts.firstMatch.waitForExistence(timeout: 3) {
+            _ = Self.tapAllow(in: system.alerts.firstMatch)
+        }
+        Thread.sleep(forTimeInterval: 3)
+        attach("mujian-alarm-toggled")
+
+        // 模拟器上 AlarmKit 未必给授权，所以只要求"有反馈"：
+        // 成功则出现响铃时刻，失败则出现红字原因，绝不能点了没反应。
+        let fired = app.staticTexts["响铃时刻"].exists
+        let hasError = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "闹钟")).count > 0
+        XCTAssertTrue(fired || hasError, "打开闹钟后既没排上也没提示原因")
     }
 
     /// 吾身：正文能编辑并保存。

@@ -221,7 +221,7 @@ App 侧在「设置 → 推送中继」填 `https://zm-push.<你的域名>` 和�
 
 | 环节 | 位置 |
 | :-- | :-- |
-| 数据源 | 幕间 `GET /api/records/upcoming`（Bearer `MJ_AUTH_TOKEN`）+ 系统日历（幕间 CalDAV） |
+| 数据源 | 幕间 `GET /api/records/upcoming`（Bearer `MJ_AUTH_TOKEN`）+ 系统日历（幕间 CalDAV，默认关闭，需在设置里显式开启后才申请读取权限） |
 | 缓存 | `ShowStore` → `~/Library/Application Support/Zhongmiao/shows.json` |
 | 排程 | `ShowScheduler` → `UNCalendarNotificationTrigger`，标识符 `show.<showID>` |
 | 灵动岛 | `ShowIslandController`，`pushType: nil`（完全不碰 APNs） |

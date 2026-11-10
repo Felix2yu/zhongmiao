@@ -53,6 +53,7 @@ final class ShowIslandController {
     /// - Parameters:
     ///   - shows: 缓存中尚未散场的演出。
     ///   - lead: 允许提前多久开岛。
+    @discardableResult
     func align(shows: [Show], lead: TimeInterval, now: Date = .now) async -> Outcome {
         // iOS 26 起这是个实例属性而非类型属性：用户可以在系统设置里随时关掉实时活动，
         // 每次开岛前都要问一次，问不到就只能放弃（此时岛根本不会出现）。

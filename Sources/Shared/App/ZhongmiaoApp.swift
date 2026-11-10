@@ -18,6 +18,10 @@ struct ZhongmiaoApp: App {
             RootView()
                 .environment(model)
                 .task { await model.bootstrap() }
+                // 自定义 URL scheme 的入口（免费账号没有 Universal Links）。
+                .onOpenURL { url in
+                    model.handleDeepLink(url)
+                }
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {

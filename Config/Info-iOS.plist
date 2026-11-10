@@ -22,12 +22,27 @@
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>im.yufei.zhongmiao</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>zhongmiao</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSAlarmKitUsageDescription</key>
+	<string>众妙需要为你在演出详情里打开的「开演闹钟」创建系统闹钟，到点时由系统响铃。</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoadsInWebContent</key>
@@ -35,8 +50,10 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>众妙仅在你开启相关功能时读取日历中的演出时间，并把生日、纪念日等提醒写入名为「众妙」的日历，交给系统在到点时提醒。</string>
 	<key>NSCalendarsUsageDescription</key>
-	<string>众妙需要读取日历中的演出时间，用于开演前的提醒与灵动岛。</string>
+	<string>众妙仅在你开启相关功能时读取日历中的演出时间，并把生日、纪念日等提醒写入名为「众妙」的日历。</string>
 	<key>NSCameraUsageDescription</key>
 	<string>上传照片或扫描内容时需要使用相机。</string>
 	<key>NSLocalNetworkUsageDescription</key>
@@ -45,6 +62,8 @@
 	<string>录制语音时需要使用麦克风。</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>从相册选择图片上传到你的自建服务。</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>众妙需要把养护、日记与任务提醒写入名为「众妙」的提醒列表，由系统在到点时提醒。</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
