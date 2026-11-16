@@ -37,16 +37,16 @@ struct IntegrationStatusBanner: View {
         if let content {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: content.symbol)
-                    .font(.footnote.weight(.semibold))
+                    .zmFont(.footnote, weight: .semibold)
                     .foregroundStyle(content.tint)
                     .frame(width: 18)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(content.title)
-                        .font(.footnote.weight(.semibold))
+                        .zmFont(.footnote, weight: .semibold)
                     if let detail = content.detail {
                         Text(detail)
-                            .font(.caption)
+                            .zmFont(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -58,12 +58,12 @@ struct IntegrationStatusBanner: View {
                     Button(content.actionTitle) {
                         onConfigure()
                     }
-                    .font(.caption.weight(.semibold))
+                    .zmFont(.caption, weight: .semibold)
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                 } else if let onRetry {
                     Button("重试", action: onRetry)
-                        .font(.caption.weight(.semibold))
+                        .zmFont(.caption, weight: .semibold)
                         .buttonStyle(.bordered)
                         .controlSize(.small)
                 }

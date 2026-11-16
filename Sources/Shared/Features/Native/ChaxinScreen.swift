@@ -52,19 +52,19 @@ struct ChaxinScreen: View {
                 Section {
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
-                        Text("正在处理…").font(.caption).foregroundStyle(.secondary)
+                        Text("正在处理…").zmFont(.caption).foregroundStyle(.secondary)
                     }
                 }
             } else if let actionError {
                 Section {
                     Text(actionError)
-                        .font(.caption)
+                        .zmFont(.caption)
                         .foregroundStyle(.red)
                 }
             } else if let actionNote {
                 Section {
                     Text(actionNote)
-                        .font(.caption)
+                        .zmFont(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -87,7 +87,7 @@ struct ChaxinScreen: View {
                         VStack(alignment: .leading, spacing: 3) {
                             HStack {
                                 Text(notification.fullName ?? "仓库")
-                                    .font(.caption2)
+                                    .zmFont(.caption2)
                                     .foregroundStyle(.secondary)
                                 Spacer()
                                 if notification.status == "failed" {
@@ -96,7 +96,7 @@ struct ChaxinScreen: View {
                                         Task { await retry(notification) }
                                     } label: {
                                         Text("重发")
-                                            .font(.caption2.weight(.medium))
+                                            .zmFont(.caption2, weight: .medium)
                                     }
                                     .buttonStyle(.plain)
                                     .foregroundStyle(.tint)
@@ -105,11 +105,11 @@ struct ChaxinScreen: View {
                             }
                             HStack(alignment: .firstTextBaseline) {
                                 Text(notification.tag ?? "新版本")
-                                    .font(.subheadline.weight(.medium))
+                                    .zmFont(.subheadline, weight: .medium)
                                 Spacer()
                                 if let released = ChaxinDate.display(notification.releasedAt) {
                                     Text(released)
-                                        .font(.caption2)
+                                        .zmFont(.caption2)
                                         .foregroundStyle(.tertiary)
                                 }
                             }
@@ -118,7 +118,7 @@ struct ChaxinScreen: View {
                                     browserTarget = BrowserTarget(url: url)
                                 } label: {
                                     Label("查看 Release", systemImage: "arrow.up.right.square")
-                                        .font(.caption)
+                                        .zmFont(.caption)
                                 }
                                 .buttonStyle(.plain)
                                 .foregroundStyle(.tint)
@@ -146,10 +146,10 @@ struct ChaxinScreen: View {
                         HStack(spacing: 8) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(repo.fullName)
-                                    .font(.subheadline)
+                                    .zmFont(.subheadline)
                                     .lineLimit(1)
                                 Text(repoSubtitle(repo))
-                                    .font(.caption2)
+                                    .zmFont(.caption2)
                                     .foregroundStyle(.secondary)
                                     .lineLimit(1)
                             }
@@ -237,10 +237,10 @@ struct ChaxinScreen: View {
     private func metric(_ title: String, value: String, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
-                .font(.caption2)
+                .zmFont(.caption2)
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.title3.weight(.semibold).monospacedDigit())
+                .zmFont(.title3, weight: .semibold, monospacedDigit: true)
                 .foregroundStyle(tint)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -321,7 +321,7 @@ private struct ChaxinAddRepoSheet: View {
                 if let error = submit.error {
                     Section {
                         Text(error)
-                            .font(.caption)
+                            .zmFont(.caption)
                             .foregroundStyle(.red)
                     }
                 }
@@ -331,11 +331,11 @@ private struct ChaxinAddRepoSheet: View {
                     TextField("owner/repo", text: $name)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                        .font(.body.monospaced())
+                        .zmFont(.body, design: .monospaced)
                         .accessibilityIdentifier("chaxin.repoName")
                     #else
                     TextField("owner/repo", text: $name)
-                        .font(.body.monospaced())
+                        .zmFont(.body, design: .monospaced)
                         .accessibilityIdentifier("chaxin.repoName")
                     #endif
                 } header: {

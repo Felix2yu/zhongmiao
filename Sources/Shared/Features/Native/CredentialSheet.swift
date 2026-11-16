@@ -40,7 +40,7 @@ struct CredentialSheet: View {
                             .zmPlainTextInput()
                         if !existingToken.isEmpty {
                             Text("已保存令牌；留空表示不修改。")
-                                .font(.caption)
+                                .zmFont(.caption)
                                 .foregroundStyle(.secondary)
                         }
                     case .login, .sessionCookie:
@@ -58,7 +58,7 @@ struct CredentialSheet: View {
                 if let message {
                     Section {
                         Text(message)
-                            .font(.caption)
+                            .zmFont(.caption)
                             .foregroundStyle(.red)
                     }
                 }

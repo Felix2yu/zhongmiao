@@ -83,14 +83,14 @@ struct YuexiScreen: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(item.name ?? "周期")
-                                    .font(.subheadline)
+                                    .zmFont(.subheadline)
                                 Text(item.nextPeriod)
-                                    .font(.caption2.monospacedDigit())
+                                    .zmFont(.caption2, monospacedDigit: true)
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
                             Text(item.daysLeft >= 0 ? "\(item.daysLeft) 天后" : "已到期")
-                                .font(.caption.weight(.medium))
+                                .zmFont(.caption, weight: .medium)
                                 .foregroundStyle(item.daysLeft <= 3 ? .orange : .secondary)
                         }
                     }
@@ -107,7 +107,7 @@ struct YuexiScreen: View {
                         VStack(alignment: .leading, spacing: 3) {
                             HStack {
                                 Text(anomaly.type)
-                                    .font(.subheadline)
+                                    .zmFont(.subheadline)
                                 Spacer()
                                 CapsuleTag(
                                     text: anomaly.severity == "info" ? "提示" : "注意",
@@ -115,7 +115,7 @@ struct YuexiScreen: View {
                                 )
                             }
                             Text(anomaly.description)
-                                .font(.caption)
+                                .zmFont(.caption)
                                 .foregroundStyle(.secondary)
                         }
                         .padding(.vertical, 1)
@@ -128,7 +128,7 @@ struct YuexiScreen: View {
             if let actionError {
                 Section {
                     Text(actionError)
-                        .font(.caption)
+                        .zmFont(.caption)
                         .foregroundStyle(.red)
                 }
             }
@@ -139,17 +139,17 @@ struct YuexiScreen: View {
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(record.startDate)
-                                    .font(.subheadline.monospacedDigit())
+                                    .zmFont(.subheadline, monospacedDigit: true)
                                 if !record.note.isEmpty {
                                     Text(record.note)
-                                        .font(.caption2)
+                                        .zmFont(.caption2)
                                         .foregroundStyle(.secondary)
                                 }
                             }
                             Spacer()
                             if let end = record.endDate, !end.isEmpty {
                                 Text("至 \(end)")
-                                    .font(.caption2.monospacedDigit())
+                                    .zmFont(.caption2, monospacedDigit: true)
                                     .foregroundStyle(.secondary)
                             } else {
                                 CapsuleTag(text: "进行中", tint: .orange)
@@ -330,23 +330,23 @@ struct YuexiScreen: View {
         let next = store.snapshot?.status?.upcoming.min { $0.daysLeft < $1.daysLeft }
         return VStack(alignment: .leading, spacing: 6) {
             Text("距离下次周期")
-                .font(.caption)
+                .zmFont(.caption)
                 .foregroundStyle(.secondary)
             if let next {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text("\(max(0, next.daysLeft))")
-                        .font(.largeTitle.weight(.semibold).monospacedDigit())
+                        .zmFont(.largeTitle, weight: .semibold, monospacedDigit: true)
                     Text("天")
-                        .font(.subheadline)
+                        .zmFont(.subheadline)
                         .foregroundStyle(.secondary)
                     Spacer()
                     Text(next.nextPeriod)
-                        .font(.caption.monospacedDigit())
+                        .zmFont(.caption, monospacedDigit: true)
                         .foregroundStyle(.secondary)
                 }
             } else {
                 Text("暂无预测")
-                    .font(.headline)
+                    .zmFont(.headline)
                     .foregroundStyle(.secondary)
             }
         }
@@ -387,7 +387,7 @@ private struct YuexiPersonSheet: View {
                 if let error = submit.error {
                     Section {
                         Text(error)
-                            .font(.caption)
+                            .zmFont(.caption)
                             .foregroundStyle(.red)
                     }
                 }
@@ -447,7 +447,7 @@ private struct YuexiRecordSheet: View {
                 if let error = submit.error {
                     Section {
                         Text(error)
-                            .font(.caption)
+                            .zmFont(.caption)
                             .foregroundStyle(.red)
                     }
                 }

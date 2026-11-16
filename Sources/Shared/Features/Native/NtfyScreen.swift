@@ -68,7 +68,7 @@ struct NtfyScreen: View {
                             Button("全部标记已读") {
                                 Task { await store.markAllRead() }
                             }
-                            .font(.caption)
+                            .zmFont(.caption)
                             .buttonStyle(.borderless)
                         }
                     }
@@ -133,7 +133,7 @@ struct NtfyScreen: View {
                         Task { await store.selectTopic(topic) }
                     } label: {
                         Text(topic)
-                            .font(.caption.weight(.medium))
+                            .zmFont(.caption, weight: .medium)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
                             .foregroundStyle(store.selectedTopic == topic ? Color.white : Color.secondary)
@@ -159,22 +159,22 @@ struct NtfyScreen: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         Text(message.title?.isEmpty == false ? message.title! : (message.topic ?? "消息"))
-                            .font(.subheadline.weight(.medium))
+                            .zmFont(.subheadline, weight: .medium)
                             .lineLimit(1)
                         Spacer(minLength: 4)
                         if let time = message.time {
                             Text(Date(timeIntervalSince1970: TimeInterval(time)), style: .time)
-                                .font(.caption2)
+                                .zmFont(.caption2)
                                 .foregroundStyle(.tertiary)
                         }
                     }
                     Text(message.message ?? "")
-                        .font(.caption)
+                        .zmFont(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(expanded ? nil : 3)
                     if let tags = message.tags, !tags.isEmpty {
                         Text(tags.map { "#\($0)" }.joined(separator: " "))
-                            .font(.caption2)
+                            .zmFont(.caption2)
                             .foregroundStyle(.tertiary)
                     }
                 }
@@ -192,7 +192,7 @@ struct NtfyScreen: View {
                             browserTarget = BrowserTarget(url: url)
                         } label: {
                             Label("打开链接", systemImage: "arrow.up.right.square")
-                                .font(.caption)
+                                .zmFont(.caption)
                         }
                         .buttonStyle(.plain)
                         .foregroundStyle(.tint)
@@ -201,7 +201,7 @@ struct NtfyScreen: View {
                     Button("删除", role: .destructive) {
                         Task { await store.delete(message) }
                     }
-                    .font(.caption)
+                    .zmFont(.caption)
                     .buttonStyle(.borderless)
                 }
             }

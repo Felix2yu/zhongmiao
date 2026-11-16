@@ -56,12 +56,25 @@ struct CatalogView: View {
                     HomeSearchHitsCard(hits: searchHits)
                 }
 
+                #if os(macOS)
+                if isSearching {
+                    CatalogSearchResults(
+                        services: searchResultServices,
+                        onConfigure: { editingService = $0 }
+                    )
+                } else {
+                    CatalogBoard(
+                        groups: visibleGroups,
+                        onConfigure: { editingService = $0 }
+                    )
+                }
+                #else
                 ForEach(groups, id: \.category) { group in
                     let services = filtered(visible(group.services))
                     if !services.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
                             Label(group.category.title, systemImage: group.category.symbol)
-                                .font(.footnote.weight(.semibold))
+                                .zmFont(.footnote, weight: .semibold)
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal, 2)
 
@@ -73,12 +86,16 @@ struct CatalogView: View {
                         }
                     }
                 }
+                #endif
 
                 footer
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, pageInset)
             .padding(.top, 8)
             .padding(.bottom, 24)
+            // 宽屏上不让栅格一直横向摊开：内容封顶 1180，两侧留白随窗口变宽。
+            .frame(maxWidth: 1180)
+            .frame(maxWidth: .infinity)
         }
         .background(Color.zmGrouped.ignoresSafeArea())
         .navigationTitle("众妙")
@@ -127,6 +144,31 @@ struct CatalogView: View {
     private var groups: [(category: ServiceDefinition.Category, services: [ServiceDefinition])] {
         ServiceCatalog.grouped { model.settings.preference(for: $0).isPinned ? 0 : 1 }
     }
+
+    /// 页边距：macOS 窗口更宽，24 才不至于让内容贴着窗口边。
+    private var pageInset: CGFloat {
+        #if os(macOS)
+        24
+        #else
+        16
+        #endif
+    }
+
+    #if os(macOS)
+    /// 分栏输入：过滤后空掉的分类直接剔除，否则会留下一张只有标题的空卡。
+    private var visibleGroups: [CatalogBoard.Group] {
+        groups.compactMap { group -> CatalogBoard.Group? in
+            let services = filtered(visible(group.services))
+            guard !services.isEmpty else { return nil }
+            return (category: group.category, services: services)
+        }
+    }
+
+    /// 搜索命中改为单栏行列表，保持注册表的分类顺序。
+    private var searchResultServices: [ServiceDefinition] {
+        groups.flatMap { filtered(visible($0.services)) }
+    }
+    #endif
 
     private var isSearching: Bool {
         !searchText.trimmingCharacters(in: .whitespaces).isEmpty
@@ -253,10 +295,10 @@ struct CatalogView: View {
     private var footer: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("共 \(ServiceCatalog.all.count) 个服务 · \(ServiceCatalog.all.filter(\.kind.isOfflineCapable).count) 个离线可用")
-                .font(.caption)
+                .zmFont(.caption)
                 .foregroundStyle(.secondary)
             Text("「离线可用」指该应用自带 Service Worker 缓存，断网也能打开，不代表服务当前的状态。全部应用经 Nginx 以 HTTPS 子域名提供，内网端口直连只用于排障。")
-                .font(.caption2)
+                .zmFont(.caption2)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -286,13 +328,13 @@ struct ServiceCard: View {
                 Spacer(minLength: 0)
                 if isPinned {
                     Image(systemName: "pin.fill")
-                        .font(.system(size: 9, weight: .semibold))
+                        .zmFont(size: 9, weight: .semibold)
                         .foregroundStyle(.tertiary)
                         .accessibilityHidden(true)
                 }
                 if unread > 0 {
                     Text("\(unread)")
-                        .font(.caption2.weight(.bold))
+                        .zmFont(.caption2, weight: .bold)
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
@@ -303,11 +345,11 @@ struct ServiceCard: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(service.name)
-                    .font(.subheadline.weight(.semibold))
+                    .zmFont(.subheadline, weight: .semibold)
                     .foregroundStyle(.primary)
                     .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
                 Text(service.summary)
-                    .font(.caption)
+                    .zmFont(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                     .fixedSize(horizontal: false, vertical: true)

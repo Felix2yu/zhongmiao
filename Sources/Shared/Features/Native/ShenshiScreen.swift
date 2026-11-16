@@ -66,16 +66,16 @@ struct ShenshiScreen: View {
                     ForEach(reminders, id: \.ackId) { hit in
                         VStack(alignment: .leading, spacing: 3) {
                             Text(hit.task.title)
-                                .font(.subheadline)
+                                .zmFont(.subheadline)
                             HStack(spacing: 6) {
                                 if let label = hit.dueLabel {
                                     Text(label)
-                                        .font(.caption2)
+                                        .zmFont(.caption2)
                                         .foregroundStyle(hit.overdue == true ? .red : .secondary)
                                 }
                                 if let fire = ShenshiDate.parse(hit.fireAt) {
                                     Text(fire.formatted(.dateTime.month().day().hour().minute()))
-                                        .font(.caption2)
+                                        .zmFont(.caption2)
                                         .foregroundStyle(.tertiary)
                                 }
                             }
@@ -166,10 +166,10 @@ struct ShenshiScreen: View {
     private func metric(_ title: String, value: Int, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
-                .font(.caption2)
+                .zmFont(.caption2)
                 .foregroundStyle(.secondary)
             Text("\(value)")
-                .font(.title3.weight(.semibold).monospacedDigit())
+                .zmFont(.title3, weight: .semibold, monospacedDigit: true)
                 .foregroundStyle(tint)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -204,7 +204,7 @@ struct ShenshiScreen: View {
                         ProgressView().controlSize(.mini)
                     } else {
                         Image(systemName: task.isDone ? "checkmark.circle.fill" : "circle")
-                            .font(.title3)
+                            .zmFont(.title3)
                             .foregroundStyle(task.isDone ? .green : .secondary)
                     }
                 }
@@ -217,18 +217,18 @@ struct ShenshiScreen: View {
                 } label: {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(task.title)
-                            .font(.subheadline)
+                            .zmFont(.subheadline)
                             .strikethrough(task.isDone)
                             .foregroundStyle(task.isDone ? .secondary : .primary)
                         HStack(spacing: 6) {
                             if let due = task.dueDate {
                                 Text(due + (task.dueTime.map { " \($0)" } ?? ""))
-                                    .font(.caption2)
+                                    .zmFont(.caption2)
                                     .foregroundStyle(.secondary)
                             }
                             if let list = task.listName {
                                 Text(list)
-                                    .font(.caption2)
+                                    .zmFont(.caption2)
                                     .foregroundStyle(.tertiary)
                             }
                             if let priority = task.priority, priority > 0 {
@@ -246,12 +246,12 @@ struct ShenshiScreen: View {
                 VStack(alignment: .leading, spacing: 4) {
                     if let notes = task.notes, !notes.isEmpty {
                         Text(notes)
-                            .font(.caption)
+                            .zmFont(.caption)
                             .foregroundStyle(.secondary)
                     }
                     if let done = task.subtaskDone, let open = task.subtaskOpen, done + open > 0 {
                         Text("子任务：\(done)/\(done + open)")
-                            .font(.caption2)
+                            .zmFont(.caption2)
                             .foregroundStyle(.tertiary)
                     }
                 }
@@ -272,7 +272,7 @@ struct ShenshiScreen: View {
                     ProgressView().controlSize(.mini)
                 } else {
                     Image(systemName: (stat?.today ?? 0) > 0 ? "checkmark.circle.fill" : "circle")
-                        .font(.title3)
+                        .zmFont(.title3)
                         .foregroundStyle((stat?.today ?? 0) > 0 ? .green : .secondary)
                 }
             }
@@ -280,7 +280,7 @@ struct ShenshiScreen: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(habit.name)
-                    .font(.subheadline)
+                    .zmFont(.subheadline)
                 HStack(spacing: 6) {
                     if let streak = stat?.streak, streak > 0 {
                         Text("连续 \(streak) 天")
@@ -289,7 +289,7 @@ struct ShenshiScreen: View {
                         Text("今天 \(today)")
                     }
                 }
-                .font(.caption2)
+                .zmFont(.caption2)
                 .foregroundStyle(.secondary)
             }
             Spacer()

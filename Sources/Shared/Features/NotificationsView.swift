@@ -25,10 +25,10 @@ struct NotificationsView: View {
                             "仅显示 \(ServiceDisplay.name(for: filterServiceID))",
                             systemImage: "line.3.horizontal.decrease.circle"
                         )
-                        .font(.footnote)
+                        .zmFont(.footnote)
                         Spacer()
                         Button("查看全部") { self.filterServiceID = nil }
-                            .font(.footnote)
+                            .zmFont(.footnote)
                     }
                 }
             }
@@ -177,7 +177,7 @@ struct NotificationsView: View {
                     ServiceGlyph(service: service, size: 30)
                 } else {
                     Image(systemName: "bell")
-                        .font(.system(size: 13))
+                        .zmFont(size: 13)
                         .frame(width: 30, height: 30)
                         .background(Color.zmCard, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
@@ -185,18 +185,18 @@ struct NotificationsView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(alignment: .firstTextBaseline) {
                         Text(item.title)
-                            .font(.subheadline.weight(item.isRead ? .regular : .semibold))
+                            .zmFont(.subheadline, weight: item.isRead ? .regular : .semibold)
                             .foregroundStyle(.primary)
                             .lineLimit(2)
                         Spacer(minLength: 6)
                         Text(RelativeTime.short(item.createdAt))
-                            .font(.caption2)
+                            .zmFont(.caption2)
                             .foregroundStyle(.secondary)
                     }
 
                     if !item.body.isEmpty {
                         Text(item.body)
-                            .font(.footnote)
+                            .zmFont(.footnote)
                             .foregroundStyle(.secondary)
                             .lineLimit(3)
                             .fixedSize(horizontal: false, vertical: true)
@@ -204,7 +204,7 @@ struct NotificationsView: View {
 
                     HStack(spacing: 6) {
                         Text(ServiceDisplay.name(for: item.serviceID))
-                            .font(.caption2)
+                            .zmFont(.caption2)
                             .foregroundStyle(.secondary)
                         if item.deliveredAt == nil {
                             CapsuleTag(text: "待补发", systemImage: "clock.arrow.circlepath", tint: .orange)
@@ -229,6 +229,31 @@ struct NotificationsView: View {
             .accessibilityValue(item.isRead ? "已读" : "未读")
         }
         .buttonStyle(.plain)
+        #if os(macOS)
+        // 没有触控板时横扫轨迹短、易误触，右键菜单才是删除与已读的主入口。
+        .contextMenu {
+            Button {
+                model.markRead(item)
+            } label: {
+                Label("标为已读", systemImage: "checkmark.circle")
+            }
+            .disabled(item.isRead)
+
+            Button(role: .destructive) {
+                model.delete(item)
+            } label: {
+                Label("删除", systemImage: "trash")
+            }
+
+            Divider()
+
+            Button {
+                model.openNotification(item)
+            } label: {
+                Label("在该应用中打开", systemImage: "arrow.up.forward.app")
+            }
+        }
+        #endif
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(role: .destructive) {
                 model.delete(item)
@@ -303,7 +328,7 @@ struct NotificationsView: View {
                 ServiceGlyph(service: service, size: 26)
             } else {
                 Image(systemName: "bell")
-                    .font(.system(size: 12))
+                    .zmFont(size: 12)
                     .frame(width: 26, height: 26)
                     .background(Color.zmCard, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
             }
@@ -311,11 +336,11 @@ struct NotificationsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(summary.name)
-                        .font(.subheadline.weight(summary.unread > 0 ? .semibold : .regular))
+                        .zmFont(.subheadline, weight: summary.unread > 0 ? .semibold : .regular)
                         .foregroundStyle(.primary)
                     if summary.unread > 0 {
                         Text("\(summary.unread)")
-                            .font(.caption2.weight(.bold))
+                            .zmFont(.caption2, weight: .bold)
                             .foregroundStyle(.white)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1)
@@ -324,17 +349,17 @@ struct NotificationsView: View {
                     }
                     Spacer(minLength: 4)
                     Text(RelativeTime.short(summary.latest.createdAt))
-                        .font(.caption2)
+                        .zmFont(.caption2)
                         .foregroundStyle(.secondary)
                 }
                 Text(summary.latest.title)
-                    .font(.caption)
+                    .zmFont(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
 
             Image(systemName: "chevron.right")
-                .font(.caption2.weight(.semibold))
+                .zmFont(.caption2, weight: .semibold)
                 .foregroundStyle(.tertiary)
         }
         .padding(.vertical, 2)

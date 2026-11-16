@@ -175,10 +175,10 @@ struct QingyeScreen: View {
     private func metric(_ title: String, value: Int, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
-                .font(.caption2)
+                .zmFont(.caption2)
                 .foregroundStyle(.secondary)
             Text("\(value)")
-                .font(.title3.weight(.semibold).monospacedDigit())
+                .zmFont(.title3, weight: .semibold, monospacedDigit: true)
                 .foregroundStyle(tint)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -204,7 +204,7 @@ struct QingyeScreen: View {
     private func chip(title: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.caption.weight(.medium))
+                .zmFont(.caption, weight: .medium)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
                 .foregroundStyle(selected ? Color.white : Color.secondary)
@@ -257,7 +257,7 @@ struct QingyeScreen: View {
                     Text(title).fontWeight(focused ? .semibold : .regular)
                     if focused {
                         Image(systemName: "scope")
-                            .font(.caption2)
+                            .zmFont(.caption2)
                             .foregroundStyle(.tint)
                     }
                 }
@@ -313,22 +313,22 @@ private struct QingyeTaskRow: View {
             Button(action: onToggle) {
                 HStack(spacing: 10) {
                     Image(systemName: task.typeSymbol)
-                        .font(.footnote.weight(.semibold))
+                        .zmFont(.footnote, weight: .semibold)
                         .foregroundStyle(.green)
                         .frame(width: 22)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(task.plant?.name ?? "植物")
-                            .font(.subheadline.weight(.medium))
+                            .zmFont(.subheadline, weight: .medium)
                         Text("\(task.title) · \(task.intervalDays) 天")
-                            .font(.caption)
+                            .zmFont(.caption)
                             .foregroundStyle(.secondary)
                     }
 
                     Spacer(minLength: 6)
 
                     Text(QingyeDue.label(task.nextDue))
-                        .font(.caption2.weight(.medium))
+                        .zmFont(.caption2, weight: .medium)
                         .foregroundStyle(task.nextDue < Calendar.current.startOfDay(for: .now) ? .red : .secondary)
 
                     if busy {
@@ -343,12 +343,12 @@ private struct QingyeTaskRow: View {
                 VStack(alignment: .leading, spacing: 7) {
                     if let last = task.lastDoneAt {
                         Text("上次：\(last.formatted(.dateTime.month().day()))")
-                            .font(.caption2)
+                            .zmFont(.caption2)
                             .foregroundStyle(.tertiary)
                     }
 
                     TextField("备注（可选）", text: $note)
-                        .font(.caption)
+                        .zmFont(.caption)
                         .textFieldStyle(.roundedBorder)
 
                     HStack(spacing: 8) {
@@ -392,14 +392,14 @@ private struct QingyePlantRow: View {
             Button(action: onToggle) {
                 HStack(spacing: 10) {
                     Image(systemName: "leaf.fill")
-                        .font(.footnote)
+                        .zmFont(.footnote)
                         .foregroundStyle(.green)
                         .frame(width: 22)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(plant.name)
-                            .font(.subheadline)
+                            .zmFont(.subheadline)
                         Text(plant.species.flatMap { $0.isEmpty ? nil : $0 } ?? plant.location ?? "植物")
-                            .font(.caption)
+                            .zmFont(.caption)
                             .foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 6)
@@ -407,7 +407,7 @@ private struct QingyePlantRow: View {
                         ProgressView().controlSize(.mini)
                     } else {
                         Text("\(tasks.count) 项")
-                            .font(.caption2)
+                            .zmFont(.caption2)
                             .foregroundStyle(.tertiary)
                     }
                 }
@@ -419,32 +419,32 @@ private struct QingyePlantRow: View {
                 VStack(alignment: .leading, spacing: 7) {
                     if let location = plant.location, !location.isEmpty {
                         Label(location, systemImage: "mappin.and.ellipse")
-                            .font(.caption2)
+                            .zmFont(.caption2)
                             .foregroundStyle(.secondary)
                     }
                     if let light = plant.lightReq, !light.isEmpty {
                         Label(light, systemImage: "sun.max")
-                            .font(.caption2)
+                            .zmFont(.caption2)
                             .foregroundStyle(.secondary)
                     }
                     if let acquired = plant.acquiredDate {
                         Label("入手于 " + acquired.formatted(.dateTime.year().month().day()), systemImage: "calendar")
-                            .font(.caption2)
+                            .zmFont(.caption2)
                             .foregroundStyle(.secondary)
                     }
                     if let note = plant.note, !note.isEmpty {
                         Text(note)
-                            .font(.caption2)
+                            .zmFont(.caption2)
                             .foregroundStyle(.tertiary)
                     }
                     if !tasks.isEmpty {
                         Text("待办：" + tasks.map(\.title).joined(separator: "、"))
-                            .font(.caption2)
+                            .zmFont(.caption2)
                             .foregroundStyle(.secondary)
                     }
                     if !logs.isEmpty {
                         Text("最近：" + logs.map { "\($0.title) \($0.at.formatted(.dateTime.month().day()))" }.joined(separator: " · "))
-                            .font(.caption2)
+                            .zmFont(.caption2)
                             .foregroundStyle(.tertiary)
                     }
 
@@ -500,7 +500,7 @@ private struct QingyeAddPlantSheet: View {
                 if let error = submit.error {
                     Section {
                         Text(error)
-                            .font(.caption)
+                            .zmFont(.caption)
                             .foregroundStyle(.red)
                     }
                 }
@@ -598,21 +598,21 @@ private struct QingyeCareGuideSheet: View {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 10) {
                             if let name = guide.name, !name.isEmpty {
-                                Text(name).font(.headline)
+                                Text(name).zmFont(.headline)
                             }
                             if let alias = guide.alias, !alias.isEmpty {
                                 Text(alias)
-                                    .font(.caption)
+                                    .zmFont(.caption)
                                     .foregroundStyle(.secondary)
                             }
                             if let text = guide.guide, !text.isEmpty {
                                 Text(text)
-                                    .font(.callout)
+                                    .zmFont(.callout)
                                     .textSelection(.enabled)
                             }
                             if let link = guide.link, !link.isEmpty, let url = URL(string: link) {
                                 Link("查看来源", destination: url)
-                                    .font(.caption)
+                                    .zmFont(.caption)
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)

@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 import ZhongmiaoCore
 #if os(iOS)
@@ -87,6 +88,15 @@ struct ServiceScreen: View {
             model.toast = value
             web.toast = nil
         }
+        #if os(macOS)
+        // 菜单里的 ⌘R / ⇧⌘R 落到当前页；RootView 只在栈里有页面时才转发过来。
+        .onReceive(NotificationCenter.default.publisher(for: .zmReloadWebPage)) { _ in
+            web.reload()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .zmForceReloadWebPage)) { _ in
+            web.reloadFromOrigin()
+        }
+        #endif
         .task {
             web.updatePolicy(keepsExternalLinksInApp: model.settings.keepExternalLinksInApp)
             // 回调先接好再加载首屏，桥事件就不会在装配间隙丢失。
@@ -150,6 +160,69 @@ struct ServiceScreen: View {
             ShareLink(item: web.currentURL ?? initialURL) {
                 Image(systemName: "square.and.arrow.up")
             }
+            .accessibilityLabel("分享当前页面")
+        }
+        #elseif os(macOS)
+        // macOS 没有底部栏，浏览器动作全部落到窗口工具栏：左侧导航，右侧地址与分享。
+        ToolbarItemGroup(placement: .navigation) {
+            Button {
+                web.goBack()
+            } label: {
+                Image(systemName: "chevron.backward")
+            }
+            .disabled(!web.canGoBack)
+            .keyboardShortcut("[", modifiers: .command)
+            .help("后退（⌘[）")
+            .accessibilityLabel("后退")
+
+            Button {
+                web.goForward()
+            } label: {
+                Image(systemName: "chevron.forward")
+            }
+            .disabled(!web.canGoForward)
+            .keyboardShortcut("]", modifiers: .command)
+            .help("前进（⌘]）")
+            .accessibilityLabel("前进")
+
+            Button {
+                if web.isLoading {
+                    web.stopLoading()
+                } else {
+                    web.reload()
+                }
+            } label: {
+                Image(systemName: web.isLoading ? "xmark" : "arrow.clockwise")
+            }
+            .help(web.isLoading ? "停止加载" : "重新加载（⌘R）")
+            .accessibilityLabel(web.isLoading ? "停止加载" : "重新加载")
+        }
+
+        ToolbarItemGroup(placement: .primaryAction) {
+            Button {
+                Pasteboard.copy((web.currentURL ?? initialURL).absoluteString)
+                model.toast = "地址已复制"
+            } label: {
+                Image(systemName: "doc.on.doc")
+            }
+            .keyboardShortcut("l", modifiers: .command)
+            .help("复制当前地址（⌘L）")
+            .accessibilityLabel("复制当前地址")
+
+            Button {
+                web.openCurrentInBrowser()
+            } label: {
+                Image(systemName: "safari")
+            }
+            .keyboardShortcut("o", modifiers: [.command, .shift])
+            .help("在浏览器打开（⇧⌘O）")
+            .accessibilityLabel("在浏览器打开")
+
+            ShareLink(item: web.currentURL ?? initialURL) {
+                Image(systemName: "square.and.arrow.up")
+            }
+            .keyboardShortcut("e", modifiers: .command)
+            .help("分享当前页面（⌘E）")
             .accessibilityLabel("分享当前页面")
         }
         #endif

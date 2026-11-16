@@ -102,7 +102,7 @@ struct MujianScreen: View {
             if let actionError {
                 Section {
                     Text(actionError)
-                        .font(.caption)
+                        .zmFont(.caption)
                         .foregroundStyle(.red)
                 }
             }
@@ -241,7 +241,7 @@ struct MujianScreen: View {
                     HStack {
                         ProgressView()
                         Text("正在查询…")
-                            .font(.caption)
+                            .zmFont(.caption)
                             .foregroundStyle(.secondary)
                     }
                 } else {
@@ -270,7 +270,7 @@ struct MujianScreen: View {
                         HStack {
                             if isSearching { ProgressView().controlSize(.small) }
                             Text(isSearching ? "加载中…" : "加载更多（\(records.count)/\(total)）")
-                                .font(.caption)
+                                .zmFont(.caption)
                         }
                     }
                     .disabled(isSearching)
@@ -345,22 +345,22 @@ struct MujianScreen: View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(show.startsAt.formatted(.dateTime.month().day().weekday(.abbreviated)))
-                    .font(.caption2)
+                    .zmFont(.caption2)
                     .foregroundStyle(.secondary)
                 Text("《\(show.name)》")
-                    .font(.subheadline.weight(.medium))
+                    .zmFont(.subheadline, weight: .medium)
                     .lineLimit(1)
                 Text([show.venue, show.seat].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
-                    .font(.caption)
+                    .zmFont(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             Spacer(minLength: 6)
             Text(show.startsAt.formatted(.dateTime.hour().minute()))
-                .font(.caption.monospacedDigit())
+                .zmFont(.caption, monospacedDigit: true)
                 .foregroundStyle(.secondary)
             Image(systemName: "chevron.right")
-                .font(.caption2)
+                .zmFont(.caption2)
                 .foregroundStyle(.tertiary)
         }
         .padding(.vertical, 2)
@@ -372,16 +372,16 @@ struct MujianScreen: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(record.name)
-                        .font(.subheadline.weight(.medium))
+                        .zmFont(.subheadline, weight: .medium)
                         .lineLimit(1)
                     if record.watched == true {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.caption2)
+                            .zmFont(.caption2)
                             .foregroundStyle(.green)
                     }
                 }
                 Text(recordSubtitle(record))
-                    .font(.caption)
+                    .zmFont(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -389,16 +389,16 @@ struct MujianScreen: View {
             VStack(alignment: .trailing, spacing: 2) {
                 if let date = record.startsAt {
                     Text(date.formatted(.dateTime.year().month().day()))
-                        .font(.caption2.monospacedDigit())
+                        .zmFont(.caption2, monospacedDigit: true)
                         .foregroundStyle(.secondary)
                 } else if let text = record.dateText, !text.isEmpty {
                     Text(text)
-                        .font(.caption2)
+                        .zmFont(.caption2)
                         .foregroundStyle(.secondary)
                 }
                 if let rating = record.rating, rating > 0 {
                     Text(String(repeating: "★", count: min(rating, 5)))
-                        .font(.caption2)
+                        .zmFont(.caption2)
                         .foregroundStyle(.orange)
                 }
             }
@@ -418,9 +418,9 @@ struct MujianScreen: View {
     private func statBar(name: String, count: Int, peak: Int, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(name).font(.caption)
+                Text(name).zmFont(.caption)
                 Spacer()
-                Text("\(count)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                Text("\(count)").zmFont(.caption, monospacedDigit: true).foregroundStyle(.secondary)
             }
             GeometryReader { proxy in
                 let ratio = peak > 0 ? CGFloat(count) / CGFloat(peak) : 0
@@ -465,14 +465,14 @@ struct MujianScreen: View {
                 if let artists = record.artistNames, !artists.isEmpty {
                     Section("演员") {
                         Text(artists.joined(separator: "、"))
-                            .font(.callout)
+                            .zmFont(.callout)
                     }
                 }
 
                 if let remark = record.remark, !remark.isEmpty {
                     Section("备注") {
                         Text(remark)
-                            .font(.callout)
+                            .zmFont(.callout)
                     }
                 }
 
@@ -564,7 +564,7 @@ struct MujianScreen: View {
 
                 if let error = submit.error {
                     Section {
-                        Text(error).font(.caption).foregroundStyle(.red)
+                        Text(error).zmFont(.caption).foregroundStyle(.red)
                     }
                 }
             }
@@ -610,10 +610,10 @@ struct MujianScreen: View {
     private func metric(_ title: String, value: String, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
-                .font(.caption2)
+                .zmFont(.caption2)
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.title3.weight(.semibold).monospacedDigit())
+                .zmFont(.title3, weight: .semibold, monospacedDigit: true)
                 .foregroundStyle(tint)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

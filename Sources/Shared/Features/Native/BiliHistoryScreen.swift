@@ -113,12 +113,12 @@ struct BiliHistoryScreen: View {
                 Section {
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
-                        Text("正在搜索…").font(.caption).foregroundStyle(.secondary)
+                        Text("正在搜索…").zmFont(.caption).foregroundStyle(.secondary)
                     }
                 }
             } else if let searchError {
                 Section {
-                    Text(searchError).font(.caption).foregroundStyle(.red)
+                    Text(searchError).zmFont(.caption).foregroundStyle(.red)
                 }
             } else if !query.isEmpty {
                 Section {
@@ -138,7 +138,7 @@ struct BiliHistoryScreen: View {
                                 Task { await loadMore() }
                             } label: {
                                 Label("加载更多", systemImage: "arrow.down.circle")
-                                    .font(.caption)
+                                    .zmFont(.caption)
                             }
                             .disabled(isSearching)
                         }
@@ -218,10 +218,10 @@ struct BiliHistoryScreen: View {
     private func metric(_ title: String, value: String, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
-                .font(.caption2)
+                .zmFont(.caption2)
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.subheadline.weight(.semibold).monospacedDigit())
+                .zmFont(.subheadline, weight: .semibold, monospacedDigit: true)
                 .foregroundStyle(tint)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
@@ -242,7 +242,7 @@ struct BiliHistoryScreen: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .top) {
                 Text(record.title)
-                    .font(.subheadline)
+                    .zmFont(.subheadline)
                     .lineLimit(2)
                 Spacer(minLength: 6)
                 if record.isCompleted {
@@ -260,7 +260,7 @@ struct BiliHistoryScreen: View {
                     Text("\(duration / 60) 分钟")
                 }
             }
-            .font(.caption2)
+            .zmFont(.caption2)
             .foregroundStyle(.secondary)
         }
         .padding(.vertical, 1)
@@ -273,7 +273,7 @@ struct BiliHistoryScreen: View {
             Task { await applyCategory() }
         } label: {
             Text(title)
-                .font(.caption.weight(selected ? .semibold : .regular))
+                .zmFont(.caption, weight: selected ? .semibold : .regular)
                 .padding(.horizontal, 9)
                 .padding(.vertical, 4)
                 .foregroundStyle(selected ? Color.white : Color.secondary)

@@ -210,10 +210,10 @@ struct QiansiScreen: View {
     private func metric(_ title: String, value: Int, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
-                .font(.caption2)
+                .zmFont(.caption2)
                 .foregroundStyle(.secondary)
             Text("\(value)")
-                .font(.title3.weight(.semibold).monospacedDigit())
+                .zmFont(.title3, weight: .semibold, monospacedDigit: true)
                 .foregroundStyle(tint)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -229,7 +229,7 @@ struct QiansiScreen: View {
                         store.filter = filter
                     } label: {
                         Text(filter.title)
-                            .font(.caption.weight(.medium))
+                            .zmFont(.caption, weight: .medium)
                             .padding(.horizontal, 11)
                             .padding(.vertical, 5)
                             .foregroundStyle(store.filter == filter ? Color.white : Color.secondary)
@@ -339,15 +339,15 @@ private struct QiansiAgendaRow: View {
             Button(action: onToggle) {
                 HStack(spacing: 10) {
                     Image(systemName: item.kind.symbol)
-                        .font(.footnote.weight(.semibold))
+                        .zmFont(.footnote, weight: .semibold)
                         .foregroundStyle(tint)
                         .frame(width: 22)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(item.title)
-                            .font(.subheadline.weight(.medium))
+                            .zmFont(.subheadline, weight: .medium)
                         Text(item.subtitle.isEmpty ? item.kind.title : item.subtitle)
-                            .font(.caption)
+                            .zmFont(.caption)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
@@ -355,7 +355,7 @@ private struct QiansiAgendaRow: View {
                     Spacer(minLength: 6)
 
                     Text(remainingLabel)
-                        .font(.caption2.weight(.medium))
+                        .zmFont(.caption2, weight: .medium)
                         .foregroundStyle(item.daysUntil == 0 ? .orange : .secondary)
                 }
                 .contentShape(Rectangle())
@@ -368,7 +368,7 @@ private struct QiansiAgendaRow: View {
                         item.date.formatted(.dateTime.year().month().day().weekday(.abbreviated)),
                         systemImage: "calendar"
                     )
-                    .font(.caption)
+                    .zmFont(.caption)
                     .foregroundStyle(.secondary)
 
                     if item.kind == .reminder, item.reminderID != nil {
@@ -432,15 +432,15 @@ private struct QiansiPersonRow: View {
             Button(action: onToggle) {
                 HStack(spacing: 10) {
                     Image(systemName: "person.crop.circle")
-                        .font(.title3)
+                        .zmFont(.title3)
                         .foregroundStyle(.purple)
                         .frame(width: 24)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(person.name)
-                            .font(.subheadline.weight(.medium))
+                            .zmFont(.subheadline, weight: .medium)
                         Text(subtitle)
-                            .font(.caption)
+                            .zmFont(.caption)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
@@ -460,15 +460,15 @@ private struct QiansiPersonRow: View {
                     if let phone = person.phone, !phone.isEmpty {
                         HStack(spacing: 10) {
                             Label(phone, systemImage: "phone")
-                                .font(.caption)
+                                .zmFont(.caption)
                             Button("拨打") { call(phone) }
                                 .buttonStyle(.borderless)
-                                .font(.caption.weight(.semibold))
+                                .zmFont(.caption, weight: .semibold)
                             Button("复制") {
                                 Pasteboard.copy(phone)
                             }
                             .buttonStyle(.borderless)
-                            .font(.caption)
+                            .zmFont(.caption)
                         }
                     }
                     if let birthday = person.birthday, !birthday.isEmpty {
@@ -476,22 +476,22 @@ private struct QiansiPersonRow: View {
                             birthday + (person.birthdayIsLunar == true ? " · 农历" : ""),
                             systemImage: "birthday.cake"
                         )
-                        .font(.caption)
+                        .zmFont(.caption)
                         .foregroundStyle(.secondary)
                     }
                     if let last = person.stats?.lastContact, !last.isEmpty {
                         Label("上次联系：\(last)", systemImage: "clock")
-                            .font(.caption)
+                            .zmFont(.caption)
                             .foregroundStyle(.secondary)
                     }
                     if let meetings = person.stats?.meetingCount {
                         Label("见面 \(meetings) 次", systemImage: "person.2")
-                            .font(.caption)
+                            .zmFont(.caption)
                             .foregroundStyle(.secondary)
                     }
                     if let notes = person.notes, !notes.isEmpty {
                         Text(notes)
-                            .font(.caption)
+                            .zmFont(.caption)
                             .foregroundStyle(.tertiary)
                             .lineLimit(3)
                     }
@@ -575,7 +575,7 @@ private struct QiansiAnniversarySheet: View {
                                 }
                             } label: {
                                 Text(day == 0 ? "当天" : "\(day) 天前")
-                                    .font(.caption.weight(.medium))
+                                    .zmFont(.caption, weight: .medium)
                                     .padding(.horizontal, 9)
                                     .padding(.vertical, 5)
                                     .foregroundStyle(remindDays.contains(day) ? Color.white : Color.secondary)
@@ -595,7 +595,7 @@ private struct QiansiAnniversarySheet: View {
 
                 if let error {
                     Section {
-                        Text(error).font(.caption).foregroundStyle(.red)
+                        Text(error).zmFont(.caption).foregroundStyle(.red)
                     }
                 }
             }
@@ -720,7 +720,7 @@ private struct QiansiEditAnniversarySheet: View {
                                 }
                             } label: {
                                 Text(day == 0 ? "当天" : "\(day) 天前")
-                                    .font(.caption.weight(.medium))
+                                    .zmFont(.caption, weight: .medium)
                                     .padding(.horizontal, 9)
                                     .padding(.vertical, 5)
                                     .foregroundStyle(remindDays.contains(day) ? Color.white : Color.secondary)
@@ -740,7 +740,7 @@ private struct QiansiEditAnniversarySheet: View {
 
                 if let error {
                     Section {
-                        Text(error).font(.caption).foregroundStyle(.red)
+                        Text(error).zmFont(.caption).foregroundStyle(.red)
                     }
                 }
             }
@@ -840,7 +840,7 @@ private struct QiansiEventSheet: View {
 
                 if let error {
                     Section {
-                        Text(error).font(.caption).foregroundStyle(.red)
+                        Text(error).zmFont(.caption).foregroundStyle(.red)
                     }
                 }
             }

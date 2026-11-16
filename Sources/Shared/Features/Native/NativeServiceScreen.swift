@@ -23,7 +23,7 @@ struct NativeServiceScreen: View {
         .safeAreaInset(edge: .top, spacing: 0) {
             if let badge = IntegrationDebugSeed.previewBadge(for: service.id) {
                 Text(badge)
-                    .font(.caption2.monospaced())
+                    .zmFont(.caption2, design: .monospaced)
                     .foregroundStyle(.orange)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 3)

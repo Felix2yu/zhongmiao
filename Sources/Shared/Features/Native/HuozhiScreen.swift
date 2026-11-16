@@ -56,7 +56,7 @@ struct HuozhiScreen: View {
                     startEntry(.expense)
                 } label: {
                     Label("记一笔", systemImage: "square.and.pencil")
-                        .font(.headline)
+                        .zmFont(.headline)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -93,17 +93,17 @@ struct HuozhiScreen: View {
                                     .frame(width: 22)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(card.name)
-                                        .font(.subheadline.weight(.medium))
+                                        .zmFont(.subheadline, weight: .medium)
                                     Text(creditSubtitle(card))
-                                        .font(.caption)
+                                        .zmFont(.caption)
                                         .foregroundStyle(.secondary)
                                 }
                                 Spacer(minLength: 6)
                                 Text(money(card.balance))
-                                    .font(.subheadline.monospacedDigit())
+                                    .zmFont(.subheadline, monospacedDigit: true)
                                     .foregroundStyle(card.balance > 0 ? .orange : .secondary)
                                 Image(systemName: "chevron.right")
-                                    .font(.caption2)
+                                    .zmFont(.caption2)
                                     .foregroundStyle(.tertiary)
                             }
                             .contentShape(Rectangle())
@@ -135,7 +135,7 @@ struct HuozhiScreen: View {
                             Text(dayLabel(group.date))
                             Spacer()
                             Text(summaryText(group))
-                                .font(.caption2.monospacedDigit())
+                                .zmFont(.caption2, monospacedDigit: true)
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -198,15 +198,15 @@ struct HuozhiScreen: View {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("净资产")
-                        .font(.caption)
+                        .zmFont(.caption)
                         .foregroundStyle(.secondary)
                     Text(money(assets?.netAsset ?? store.snapshot?.accountSummary?.netAsset ?? 0))
-                        .font(.title2.weight(.semibold).monospacedDigit())
+                        .zmFont(.title2, weight: .semibold, monospacedDigit: true)
                 }
                 Spacer()
                 if let last = store.lastUpdated {
                     Text(RelativeTime.short(last))
-                        .font(.caption2)
+                        .zmFont(.caption2)
                         .foregroundStyle(.tertiary)
                 }
             }
@@ -228,10 +228,10 @@ struct HuozhiScreen: View {
     private func assetMetric(_ title: String, value: Double, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(.caption2)
+                .zmFont(.caption2)
                 .foregroundStyle(.secondary)
             Text(money(value))
-                .font(.caption.weight(.semibold).monospacedDigit())
+                .zmFont(.caption, weight: .semibold, monospacedDigit: true)
                 .foregroundStyle(tint)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -247,16 +247,16 @@ struct HuozhiScreen: View {
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: typeSymbol(transaction.type))
-                        .font(.footnote.weight(.semibold))
+                        .zmFont(.footnote, weight: .semibold)
                         .foregroundStyle(typeTint(transaction.type))
                         .frame(width: 22)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(transaction.description?.isEmpty == false ? transaction.description! : (transaction.categoryName ?? typeTitle(transaction.type)))
-                            .font(.subheadline)
+                            .zmFont(.subheadline)
                             .lineLimit(1)
                         Text(subtitle(transaction))
-                            .font(.caption2)
+                            .zmFont(.caption2)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
@@ -264,7 +264,7 @@ struct HuozhiScreen: View {
                     Spacer(minLength: 6)
 
                     Text(amountText(transaction))
-                        .font(.subheadline.monospacedDigit())
+                        .zmFont(.subheadline, monospacedDigit: true)
                         .foregroundStyle(typeTint(transaction.type))
                 }
                 .contentShape(Rectangle())
@@ -274,16 +274,16 @@ struct HuozhiScreen: View {
             if expanded {
                 VStack(alignment: .leading, spacing: 5) {
                     Label(transaction.txDate.replacingOccurrences(of: "T", with: " ").prefix(16).description, systemImage: "clock")
-                        .font(.caption2)
+                        .zmFont(.caption2)
                         .foregroundStyle(.secondary)
                     if let category = transaction.categoryName {
                         Label(category, systemImage: "tag")
-                            .font(.caption2)
+                            .zmFont(.caption2)
                             .foregroundStyle(.secondary)
                     }
                     if let remark = transaction.remark, !remark.isEmpty {
                         Text(remark)
-                            .font(.caption2)
+                            .zmFont(.caption2)
                             .foregroundStyle(.tertiary)
                     }
                 }
@@ -428,7 +428,7 @@ private struct HuozhiEntrySheet: View {
                         #if os(iOS)
                         .keyboardType(.decimalPad)
                         #endif
-                        .font(.title3.monospacedDigit())
+                        .zmFont(.title3, monospacedDigit: true)
 
                     DatePicker("日期", selection: $entryDate, displayedComponents: .date)
 
@@ -516,7 +516,7 @@ private struct HuozhiEntrySheet: View {
                 if let message {
                     Section {
                         Text(message)
-                            .font(.caption)
+                            .zmFont(.caption)
                             .foregroundStyle(draft.needsReconciliation ? .orange : .red)
                     }
                 }

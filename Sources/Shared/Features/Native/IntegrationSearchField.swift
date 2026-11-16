@@ -18,12 +18,12 @@ struct IntegrationSearchField: View {
     var body: some View {
         HStack(spacing: 7) {
             Image(systemName: "magnifyingglass")
-                .font(.footnote)
+                .zmFont(.footnote)
                 .foregroundStyle(.secondary)
 
             TextField(placeholder, text: $text)
                 .textFieldStyle(.plain)
-                .font(.subheadline)
+                .zmFont(.subheadline)
                 .autocorrectionDisabled()
                 .focused($focused)
                 .submitLabel(.search)
@@ -41,7 +41,7 @@ struct IntegrationSearchField: View {
                     onSubmit?()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.footnote)
+                        .zmFont(.footnote)
                         .foregroundStyle(.tertiary)
                 }
                 .buttonStyle(.plain)

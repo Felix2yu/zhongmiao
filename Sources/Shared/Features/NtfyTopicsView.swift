@@ -17,6 +17,17 @@ struct NtfyTopicsView: View {
     @State private var draftError: String?
 
     var body: some View {
+        #if os(macOS)
+        macBody
+        #else
+        iosBody
+        #endif
+    }
+
+    // MARK: - iOS
+
+    #if os(iOS)
+    private var iosBody: some View {
         Form {
             Section {
                 if isLoading && !hasLoaded {
@@ -30,13 +41,13 @@ struct NtfyTopicsView: View {
                         Label("读取失败", systemImage: "exclamationmark.triangle")
                             .foregroundStyle(.orange)
                         Text(loadError)
-                            .font(.caption)
+                            .zmFont(.caption)
                             .foregroundStyle(.secondary)
                         Button("重试") {
                             Task { await load() }
                         }
                         .buttonStyle(.borderless)
-                        .font(.caption)
+                        .zmFont(.caption)
                     }
                 } else {
                     if serverTopics.isEmpty {
@@ -67,7 +78,7 @@ struct NtfyTopicsView: View {
                     ForEach(model.ntfyTopics, id: \.self) { topic in
                         HStack(spacing: 10) {
                             Image(systemName: "bell.badge")
-                                .font(.caption)
+                                .zmFont(.caption)
                                 .foregroundStyle(.tint)
                                 .frame(width: 20)
                             Text(topic)
@@ -76,7 +87,7 @@ struct NtfyTopicsView: View {
                                 model.unsubscribeNtfyTopic(topic)
                             }
                             .buttonStyle(.borderless)
-                            .font(.caption)
+                            .zmFont(.caption)
                         }
                     }
                 }
@@ -93,7 +104,7 @@ struct NtfyTopicsView: View {
 
                 if let draftError {
                     Text(draftError)
-                        .font(.caption)
+                        .zmFont(.caption)
                         .foregroundStyle(.orange)
                 }
 
@@ -114,7 +125,7 @@ struct NtfyTopicsView: View {
                     } label: {
                         LabeledContent {
                             Text(serverAddressText)
-                                .font(.caption.monospaced())
+                                .zmFont(.caption, design: .monospaced)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
                         } label: {
@@ -143,6 +154,180 @@ struct NtfyTopicsView: View {
             await load()
         }
     }
+    #endif
+
+    // MARK: - macOS
+
+    #if os(macOS)
+    @Environment(\.interfaceScale) private var scale
+
+    private var macBody: some View {
+        MacSettingsPage {
+            MacSettingsGroup(title: "服务器上的主题", footer: serverTopicsFooter) {
+                if isLoading && !hasLoaded {
+                    MacSettingsStackRow {
+                        HStack(spacing: 8) {
+                            ProgressView().controlSize(.small)
+                            Text("正在读取服务器主题…")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } else if let loadError {
+                    MacSettingsStackRow {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label("读取失败", systemImage: "exclamationmark.triangle")
+                                .foregroundStyle(.orange)
+                            Text(loadError)
+                                .zmFont(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+
+                    MacSettingsDivider()
+
+                    MacSettingsButtonRow(title: "重试", systemImage: "arrow.clockwise") {
+                        Task { await load() }
+                    }
+                } else {
+                    if serverTopics.isEmpty {
+                        MacSettingsStackRow {
+                            Text("服务器上还没有缓存过任何主题")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    ForEach(serverTopics, id: \.self) { topic in
+                        macServerTopicRow(topic)
+                        MacSettingsDivider()
+                    }
+
+                    MacSettingsButtonRow(title: "刷新服务器主题", systemImage: "arrow.clockwise") {
+                        Task { await load() }
+                    }
+                    .disabled(isLoading)
+                }
+            }
+
+            MacSettingsGroup(title: "已订阅", footer: subscribedFooter) {
+                if model.ntfyTopics.isEmpty {
+                    MacSettingsStackRow {
+                        Text("还没有订阅任何主题")
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    ForEach(Array(model.ntfyTopics.enumerated()), id: \.element) { index, topic in
+                        MacSettingsRow(title: topic) {
+                            Button("取消订阅", role: .destructive) {
+                                model.unsubscribeNtfyTopic(topic)
+                            }
+                            .zmPushButton(role: .destructive)
+                            .accessibilityLabel("取消订阅 \(topic)")
+                        }
+                        if index < model.ntfyTopics.count - 1 {
+                            MacSettingsDivider()
+                        }
+                    }
+                }
+            }
+
+            MacSettingsGroup(title: "新建主题", footer: newTopicFooter) {
+                MacSettingsRow(title: "主题名", fillsWidth: true) {
+                    TextField("例如 alerts", text: $draft)
+                        .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.trailing)
+                        .onSubmit { subscribeDraft() }
+                        .accessibilityLabel("主题名")
+                }
+
+                if let draftError {
+                    MacSettingsDivider()
+
+                    MacSettingsStackRow {
+                        Text(draftError)
+                            .zmFont(.caption)
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                MacSettingsDivider()
+
+                MacSettingsButtonRow(title: "订阅这个主题", systemImage: "plus.circle") {
+                    subscribeDraft()
+                }
+                .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+
+            MacSettingsGroup(title: "服务器", footer: serverFooter) {
+                if let ntfyService = ServiceCatalog.service(id: "ntfy") {
+                    MacSettingsNavigationRow(
+                        title: "服务器地址与令牌",
+                        systemImage: "externaldrive.connected.to.line.below",
+                        detail: serverAddressText
+                    ) {
+                        ServiceConfigView(service: ntfyService)
+                    }
+                }
+            }
+        }
+        .navigationTitle("ntfy 主题")
+        .task {
+            guard !hasLoaded else { return }
+            await load()
+        }
+        .onChange(of: model.ntfyToken) { _, _ in
+            Task { await load() }
+        }
+    }
+
+    private var serverTopicsFooter: String {
+        "来自 GET /v1/topics，只列出服务器上已有消息的主题。点一下即订阅，不用再进 ntfy 网页版。当前服务器：\(serverAddressText)"
+    }
+
+    private var subscribedFooter: String {
+        "每个主题独立推进游标、独立去重，收件箱里按主题名显示。取消订阅不会删除已收到的通知。"
+    }
+
+    private var newTopicFooter: String {
+        "ntfy 的主题按需创建：本地订阅立即生效，第一次往这个主题发布消息时服务器才会缓存它。只能用字母、数字、- 和 _。"
+    }
+
+    private var serverFooter: String {
+        "ntfy 本身也是一个服务，地址覆盖与访问令牌统一在它的配置页里填，这里不再重复一处入口。服务端启用访问控制（auth-file）时，读主题和「标记已读」都要带令牌，且令牌需要对该主题有写权限。"
+    }
+
+    private func macServerTopicRow(_ topic: String) -> some View {
+        let subscribed = model.isNtfyTopicSubscribed(topic)
+        return Button {
+            guard !subscribed else { return }
+            if let error = model.subscribeNtfyTopic(topic) {
+                draftError = error
+            } else {
+                model.toast = "已订阅 \(topic)"
+            }
+        } label: {
+            HStack(spacing: 8.zmScaled(scale)) {
+                Image(systemName: subscribed ? "checkmark.circle.fill" : "plus.circle")
+                    .foregroundStyle(subscribed ? Color.green : Color.accentColor)
+                    .frame(width: 20.zmScaled(scale))
+                Text(topic)
+                    .foregroundStyle(.primary)
+                Spacer(minLength: 8)
+                Text(subscribed ? "已订阅" : "订阅")
+                    .zmFont(.caption)
+                    .foregroundStyle(subscribed ? Color.secondary : Color.accentColor)
+            }
+            .padding(.horizontal, 14.zmScaled(scale))
+            .padding(.vertical, 5.zmScaled(scale))
+            .frame(minHeight: 32.zmScaled(scale))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(subscribed)
+        .accessibilityLabel(Text("\(topic)，\(subscribed ? "已订阅" : "订阅")"))
+    }
+    #endif
 
     private var serverAddressText: String {
         model.resolvedNtfyBase()?.absoluteString ?? "未解析，请在下方填写 ntfy 地址"
@@ -167,7 +352,7 @@ struct NtfyTopicsView: View {
                     .foregroundStyle(.primary)
                 Spacer(minLength: 8)
                 Text(subscribed ? "已订阅" : "订阅")
-                    .font(.caption)
+                    .zmFont(.caption)
                     .foregroundStyle(subscribed ? Color.secondary : Color.accentColor)
             }
             .contentShape(Rectangle())

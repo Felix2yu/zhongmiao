@@ -221,8 +221,18 @@ enum WebViewFactory {
           content += ', maximum-scale=5';
         }
         meta.setAttribute('content', content);
-        document.documentElement.setAttribute('data-zhongmiao-container', 'ios');
+        document.documentElement.setAttribute('data-zhongmiao-container', '\#(containerName)');
       } catch (error) {}
     })();
     """#
+
+    /// 页面用它区分容器形态：iOS 要让出悬浮 Tab 栏与底部安全区，macOS 按窗口排版。
+    /// 写死 `ios` 会让 mac 上的页面套用手机端的留白规则。
+    private static var containerName: String {
+        #if os(iOS)
+        "ios"
+        #else
+        "macos"
+        #endif
+    }
 }

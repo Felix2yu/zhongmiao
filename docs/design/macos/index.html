@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>众妙 · macOS 适配界面参考稿</title>
+<style>
+/* ============================================================
+   众妙 macOS 参考稿
+   所有数值取自 Sources/Shared 与 ServiceCatalog，见 docs/DESIGN-macOS.md
+   本文件仅为示意：SF Symbol 以占位字形替代，实际渲染为系统符号
+   ============================================================ */
+
+:root {
+  --bg: #ececef;
+  --page: #ffffff;
+  --text: #1d1d1f;
+  --text-2: #6e6e73;
+  --text-3: #8f8f95;
+  --sep: rgba(0,0,0,0.12);
+  --sep-soft: rgba(0,0,0,0.06);
+  --card: #ffffff;
+  --card-stroke: rgba(0,0,0,0.042);
+  --shadow: 0 2px 6px rgba(0,0,0,0.04);
+  --shadow-hover: 0 4px 10px rgba(0,0,0,0.06);
+  --accent: rgb(60,71,96);
+  --accent-fg: #ffffff;
+  --chrome: #f2f2f4;
+  --chrome-line: rgba(0,0,0,0.10);
+  --menubar: rgba(246,246,248,0.86);
+  --toolbar: rgba(250,250,251,0.9);
+  --hover: rgba(0,0,0,0.035);
+  --sidebar: #f0f0f2;
+  --field: rgba(120,120,128,0.12);
+  --green: #2f9e5f;
+  --orange: #c47c17;
+  --red: #d13b3b;
+
+  /* 服务色板 14 组 —— 与 ServiceCatalog.swift 一致 */
+  --t-shenshi: #5B5BD6;
+  --t-mujian: #8E5BD9;
+  --t-bili: #D9527A;
+  --t-liuxia: #C96A9B;
+  --t-tuqie: #6B7A8F;
+  --t-huozhi: #B8862F;
+  --t-diarum: #4C8DF6;
+  --t-qingye: #3F9A6B;
+  --t-chaxin: #4E8299;
+  --t-qiansi: #8F63C9;
+  --t-yuexi: #6E7BD4;
+  --t-ntfy: #2A9D8F;
+  --t-qbhive: #3B82C4;
+  --t-whoami: #6B7280;
+
+  /* 形状与间距 token */
+  --r-card: 16px;
+  --r-metric: 12px;
+  --r-search: 9px;
+  --r-glyph: 11.2px;
+  --sp-2: 2px; --sp-4: 4px; --sp-6: 6px; --sp-8: 8px;
+  --sp-10: 10px; --sp-12: 12px; --sp-16: 16px; --sp-18: 18px; --sp-24: 24px;
+
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+[data-theme="dark"] {
+  --bg: #0b0c0d;
+  --page: #131415;
+  --text: #f5f5f7;
+  --text-2: #98989d;
+  --text-3: #7c7c82;
+  --sep: rgba(255,255,255,0.14);
+  --sep-soft: rgba(255,255,255,0.07);
+  --card: #1c1d1f;
+  --card-stroke: rgba(255,255,255,0.07);
+  --shadow: none;
+  --shadow-hover: 0 0 0 0.5px rgba(255,255,255,0.12);
+  --accent: rgb(205,212,226);
+  --accent-fg: #16171a;
+  --chrome: #1a1b1d;
+  --chrome-line: rgba(255,255,255,0.10);
+  --menubar: rgba(24,25,27,0.86);
+  --toolbar: rgba(26,27,29,0.9);
+  --hover: rgba(255,255,255,0.06);
+  --sidebar: #17181a;
+  --field: rgba(120,120,128,0.24);
+  --green: #4fbe83;
+  --orange: #e0a34a;
+  --red: #e5675f;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- 页面外壳 ---------- */
+.topbar {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; gap: 20px;
+  padding: 12px 28px;
+  background: var(--menubar);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 0.5px solid var(--chrome-line);
+}
+.topbar .brand { font-size: 14px; font-weight: 600; letter-spacing: 0.2px; }
+.topbar .brand em { font-style: normal; color: var(--text-3); font-weight: 400; margin-left: 8px; font-size: 12px; }
+.topbar nav { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+.topbar nav a {
+  color: var(--text-2); text-decoration: none; font-size: 12px;
+  padding: 4px 9px; border-radius: 6px;
+}
+.topbar nav a:hover { background: var(--hover); color: var(--text); }
+.theme-btn {
+  font: inherit; font-size: 12px; color: var(--text);
+  background: var(--field); border: none; border-radius: 7px;
+  padding: 5px 12px; cursor: pointer;
+}
+.theme-btn:hover { filter: brightness(0.97); }
+
+main { max-width: 1180px; margin: 0 auto; padding: 32px 28px 80px; }
+
+.doc-head { margin-bottom: 36px; }
+.doc-head h1 { font-size: 26px; font-weight: 600; margin: 0 0 8px; letter-spacing: -0.2px; }
+.doc-head p { margin: 0; color: var(--text-2); font-size: 13px; max-width: 760px; }
+.doc-head .meta { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+.chip {
+  font-size: 11px; color: var(--text-2); padding: 3px 9px;
+  border: 0.5px solid var(--sep); border-radius: 999px;
+}
+
+/* ---------- 每屏 ---------- */
+.screen { margin-bottom: 56px; scroll-margin-top: 70px; }
+.screen-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+.screen-idx {
+  font-family: var(--mono); font-size: 11px; color: var(--text-3);
+  border: 0.5px solid var(--sep); border-radius: 5px; padding: 1px 6px;
+}
+.screen-head h2 { font-size: 17px; font-weight: 600; margin: 0; }
+.screen-desc { color: var(--text-2); font-size: 12.5px; margin: 0 0 16px; max-width: 860px; }
+.spec-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.spec {
+  font-family: var(--mono); font-size: 10.5px; color: var(--text-2);
+  background: var(--field); border-radius: 5px; padding: 2px 7px;
+}
+.stage {
+  background: var(--page);
+  border: 0.5px solid var(--sep);
+  border-radius: 12px;
+  padding: 22px 22px 26px;
+  overflow-x: auto;
+}
+.caption { margin-top: 12px; font-size: 11.5px; color: var(--text-3); }
+.caption b { color: var(--text-2); font-weight: 500; }
+
+/* ---------- macOS 菜单栏 ---------- */
+.menubar {
+  display: flex; align-items: center; gap: 14px;
+  height: 24px; padding: 0 10px;
+  background: var(--menubar);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 0.5px solid var(--chrome-line);
+  font-size: 11.5px; color: var(--text);
+  border-radius: 10px 10px 0 0;
+}
+.menubar .apple {
+  width: 11px; height: 11px; border-radius: 3px;
+  background: var(--text); opacity: 0.85;
+}
+.menubar .app-name { font-weight: 600; }
+.menubar .mi { color: var(--text); opacity: 0.9; }
+.menubar .mi.dim { opacity: 0.45; }
+.menubar .right { margin-left: auto; display: flex; gap: 12px; color: var(--text-2); font-size: 11px; }
+
+/* ---------- 窗口 ---------- */
+.win {
+  border-radius: 10px;
+  overflow: hidden;
+  border: 0.5px solid var(--chrome-line);
+  background: var(--page);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.14), 0 1px 3px rgba(0,0,0,0.08);
+}
+[data-theme="dark"] .win { box-shadow: 0 14px 40px rgba(0,0,0,0.6); }
+.win-bar {
+  position: relative; display: flex; align-items: center;
+  height: 38px; padding: 0 12px;
+  background: var(--chrome);
+  border-bottom: 0.5px solid var(--chrome-line);
+}
+.lights { display: flex; gap: 8px; }
+.lights i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+.lights .l1 { background: #ff5f57; }
+.lights .l2 { background: #febc2e; }
+.lights .l3 { background: #28c840; }
+[data-theme="dark"] .lights i { opacity: 0.9; }
+.win-title {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  font-size: 12.5px; font-weight: 600; color: var(--text-2);
+  white-space: nowrap;
+}
+.win-tools { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.tool-btn {
+  width: 26px; height: 22px; border-radius: 6px;
+  background: var(--field); display: flex; align-items: center; justify-content: center;
+}
+.tool-btn svg { width: 13px; height: 13px; stroke: var(--text-2); }
+
+/* ---------- 内容区 ---------- */
+.body-pad { padding: var(--sp-16) var(--sp-16) var(--sp-24); background: var(--page); }
+
+.toolbar-row { display: flex; align-items: center; gap: 10px; margin-bottom: var(--sp-16); }
+.search-field {
+  flex: 1; max-width: 320px; height: 28px; border-radius: var(--r-search);
+  background: var(--field); display: flex; align-items: center; gap: 6px;
+  padding: 0 9px; color: var(--text-3); font-size: 12px;
+}
+.search-field svg { width: 12px; height: 12px; stroke: var(--text-3); flex: none; }
+.toolbar-spacer { flex: 1; }
+
+.section-title {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 13px; font-weight: 600; margin: 0 0 9px;
+}
+.section-title .cat-ico {
+  width: 18px; height: 18px; border-radius: 5px;
+  background: var(--field); display: flex; align-items: center; justify-content: center;
+}
+.section-title .cat-ico svg { width: 11px; height: 11px; stroke: var(--text-2); }
+.section-title .count { font-weight: 400; color: var(--text-3); font-size: 11.5px; }
+.group { margin-bottom: var(--sp-18); }
+
+.grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: var(--sp-12); }
+.grid.n5 { grid-template-columns: repeat(5, minmax(0,1fr)); }
+
+/* 服务卡片：圆角 16 / padding 12 / minHeight 132 / 描边 0.5 / 阴影 6,2,0.04 */
+.card {
+  background: var(--card);
+  border-radius: var(--r-card);
+  border: 0.5px solid var(--card-stroke);
+  box-shadow: var(--shadow);
+  padding: var(--sp-12);
+  min-height: 132px;
+  display: flex; flex-direction: column;
+  gap: var(--sp-10);
+  transition: box-shadow .14s ease, border-color .14s ease;
+}
+.card.hover { border-color: rgba(0,0,0,0.18); box-shadow: var(--shadow-hover); }
+[data-theme="dark"] .card.hover { border-color: rgba(255,255,255,0.2); }
+.card-top { display: flex; align-items: flex-start; }
+.card-top .spacer { flex: 1; }
+
+/* 服务图标：40 / 圆角 11.2 / 渐变 0.95→0.72 / 白色符号 */
+.glyph {
+  width: 40px; height: 40px; border-radius: var(--r-glyph);
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg,
+      color-mix(in srgb, var(--tint) 95%, var(--card)),
+      color-mix(in srgb, var(--tint) 72%, var(--card)));
+  flex: none;
+}
+.glyph svg { width: 17.6px; height: 17.6px; stroke: #fff; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.glyph svg .fill { fill: #fff; stroke: none; }
+
+.pin { color: var(--text-3); display: flex; }
+.pin svg { width: 10px; height: 10px; stroke: var(--text-3); fill: none; stroke-width: 1.8; }
+.unread {
+  min-width: 18px; height: 17px; padding: 0 6px; border-radius: 999px;
+  background: var(--red); color: #fff; font-size: 10.5px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.card-name { font-size: 13px; font-weight: 600; line-height: 1.25; }
+.card-sum { font-size: 11.5px; color: var(--text-2); line-height: 1.35; margin-top: 2px; }
+.card-text { display: flex; flex-direction: column; gap: 2px; }
+.tags { display: flex; gap: 4px; align-items: center; margin-top: auto; }
+
+/* 胶囊标签：caption2 / h6 v2 / tint 16% */
+.tag {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 10.5px; font-weight: 500; color: var(--text);
+  padding: 2px 6px; border-radius: 999px;
+  background: color-mix(in srgb, var(--c, var(--text-2)) 16%, transparent);
+  white-space: nowrap;
+}
+.tag svg { width: 9px; height: 9px; stroke: var(--c, var(--text-2)); fill: none; stroke-width: 2; }
+.tag.green { --c: var(--green); }
+.tag.orange { --c: var(--orange); }
+.tag.gray { --c: var(--text-3); }
+
+/* ---------- 首页：分类分栏 + 服务行（macOS 形态） ---------- */
+.cols { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 20px; align-items: start; }
+.cols.c2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+.col { display: flex; flex-direction: column; gap: var(--sp-18); min-width: 0; }
+
+/* 分类块：承载原本放在单卡上的 16 圆角 / 12 内距 / 0.5 描边 / r6y2 阴影 */
+.cat-card {
+  background: var(--card);
+  border-radius: var(--r-card);
+  border: 0.5px solid var(--card-stroke);
+  box-shadow: var(--shadow);
+  padding: var(--sp-12);
+}
+.cat-head { display: flex; align-items: center; gap: 7px; height: 18px; margin-bottom: var(--sp-8); }
+.cat-head .cat-ico {
+  width: 18px; height: 18px; border-radius: 5px; flex: none;
+  background: var(--field); display: flex; align-items: center; justify-content: center;
+}
+.cat-head .cat-ico svg { width: 11px; height: 11px; stroke: var(--text-2); fill: none; }
+.cat-name { font-size: 12.5px; font-weight: 600; }
+.cat-head .count { font-weight: 400; color: var(--text-3); font-size: 11px; }
+
+/* 服务行：高 44 / Glyph 28 / 行分隔 0.5 / 悬停 separator 0.06 / 圆角 8 */
+.srow {
+  display: flex; align-items: center; gap: 10px;
+  height: 44px; padding: 0 8px; border-radius: 8px;
+  transition: background-color .12s ease;
+}
+.srow + .srow { box-shadow: inset 0 0.5px 0 var(--sep-soft); }
+.srow:hover { background: var(--sep-soft); }
+.srow-main { display: flex; align-items: baseline; gap: 8px; min-width: 0; flex: 1; }
+.srow-name { font-size: 13px; font-weight: 600; white-space: nowrap; flex: none; min-width: 72px; }
+.srow-sum { font-size: 11.5px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.srow .ret { display: flex; align-items: center; gap: 6px; flex: none; }
+
+/* Glyph 28：圆角 28×0.28 = 7.84，符号 28×0.44 = 12.32 */
+.glyph.sm { width: 28px; height: 28px; border-radius: 7.84px; }
+.glyph.sm svg { width: 12.32px; height: 12.32px; }
+
+/* ---------- 01 框架示意（已选定骨架 A） ---------- */
+.fw-tabs { display: flex; align-items: center; gap: 18px; padding: 0 4px 9px; border-bottom: 0.5px solid var(--sep); margin-bottom: 14px; font-size: 11.5px; }
+.fw-tab { display: flex; align-items: center; gap: 5px; color: var(--text-3); }
+.fw-tab.on { color: var(--text); font-weight: 600; }
+.fw-tab svg { width: 13px; height: 13px; stroke: currentColor; stroke-width: 1.6; fill: none; }
+.fw-badge { font-size: 9.5px; line-height: 1; padding: 2.5px 4.5px; border-radius: 999px; background: var(--red); color: #fff; font-weight: 600; }
+.fw-hint { margin-left: auto; font-size: 10.5px; color: var(--text-3); }
+.fw-cols { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+.fw-col { display: flex; flex-direction: column; gap: 12px; }
+.fw-card { border: 1px dashed var(--sep); border-radius: 12px; padding: 10px 11px; display: flex; align-items: flex-start; }
+.fw-in { font-size: 10.5px; color: var(--text-3); line-height: 1.5; }
+
+/* ---------- 已搁置备选的折叠区 ---------- */
+.archive { margin-bottom: 40px; border-top: 0.5px solid var(--chrome-line); padding-top: 10px; }
+.archive > summary {
+  cursor: pointer; font-size: 12px; color: var(--text-2); padding: 4px 0 10px;
+  list-style: none; display: flex; align-items: baseline; gap: 8px;
+}
+.archive > summary::-webkit-details-marker { display: none; }
+.archive > summary::before { content: "▸"; color: var(--text-3); font-size: 11px; }
+.archive[open] > summary::before { content: "▾"; }
+.archive > summary em { font-style: normal; color: var(--text-3); font-size: 11px; }
+.archive .screen { margin-bottom: 0; }
+
+/* ---------- 路线 A：标签栏 ---------- */
+.tabbar {
+  display: flex; gap: 2px; padding: 6px 12px 0;
+  background: var(--chrome); border-bottom: 0.5px solid var(--chrome-line);
+}
+.tab {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text-2);
+  padding: 5px 12px 7px; border-radius: 6px 6px 0 0;
+  position: relative;
+}
+.tab svg { width: 13px; height: 13px; stroke: var(--text-2); fill: none; stroke-width: 1.7; }
+.tab.active { color: var(--text); background: var(--page); }
+.tab.active svg { stroke: var(--text); }
+.tab .badge {
+  min-width: 15px; height: 14px; padding: 0 4px; border-radius: 999px;
+  background: var(--red); color: #fff; font-size: 9.5px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ---------- 路线 B：侧边栏 ---------- */
+.split { display: flex; min-height: 380px; }
+.sidebar {
+  width: 226px; flex: none; background: var(--sidebar);
+  border-right: 0.5px solid var(--chrome-line);
+  padding: 10px 8px; display: flex; flex-direction: column; gap: 2px;
+}
+.side-head { font-size: 10.5px; font-weight: 600; color: var(--text-3); padding: 8px 8px 4px; letter-spacing: .3px; }
+.side-item {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12.5px; color: var(--text); padding: 5px 8px; border-radius: 6px;
+}
+.side-item svg { width: 14px; height: 14px; stroke: var(--text-2); fill: none; stroke-width: 1.7; }
+.side-item .badge {
+  margin-left: auto; min-width: 16px; height: 15px; padding: 0 5px; border-radius: 999px;
+  background: var(--red); color: #fff; font-size: 10px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.side-item.sel { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.side-item.sel svg { stroke: var(--accent); }
+.side-item .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--tint, var(--text-3)); flex: none; }
+.detail { flex: 1; padding: var(--sp-16); min-width: 0; }
+
+/* ---------- 菜单展开 ---------- */
+.menu-stage { position: relative; padding-top: 8px; }
+.menu-pop {
+  position: absolute; top: 32px; left: 62px;
+  width: 268px; padding: 5px;
+  background: var(--page); border-radius: 8px;
+  border: 0.5px solid var(--sep);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+  font-size: 12.5px; z-index: 5;
+}
+.menu-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 9px; border-radius: 5px; color: var(--text);
+}
+.menu-item .k { margin-left: auto; color: var(--text-3); font-size: 11.5px; font-family: var(--mono); }
+.menu-item.dim { color: var(--text-3); }
+.menu-item.checked { color: var(--accent); }
+.menu-item.checked .tick { width: 12px; display: inline-block; font-size: 11px; line-height: 1; }
+.menu-item.checked .tick::before { content: "✓"; }
+.menu-sep { height: 0.5px; background: var(--sep); margin: 4px 8px; }
+
+.keytable { width: 100%; border-collapse: collapse; font-size: 12px; }
+.keytable th { text-align: left; font-weight: 600; font-size: 11px; color: var(--text-3); padding: 6px 10px; border-bottom: 0.5px solid var(--sep); }
+.keytable td { padding: 6px 10px; border-bottom: 0.5px solid var(--sep-soft); }
+.keytable td.k { font-family: var(--mono); font-size: 11px; color: var(--text); white-space: nowrap; width: 96px; }
+.keytable td.d { color: var(--text-2); }
+.kbd {
+  display: inline-block; font-family: var(--mono); font-size: 10.5px;
+  background: var(--field); border-radius: 4px; padding: 1px 5px; margin-right: 2px;
+}
+
+/* ---------- 缩放三态 ---------- */
+.scale-row { display: flex; align-items: stretch; gap: 20px; flex-wrap: wrap; }
+.scale-item { display: flex; flex-direction: column; gap: 6px; }
+.scale-item .lab { font-family: var(--mono); font-size: 10.5px; color: var(--text-2); }
+.mini-win {
+  border-radius: 8px; border: 0.5px solid var(--chrome-line);
+  background: var(--page); overflow: hidden;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.10);
+}
+[data-theme="dark"] .mini-win { box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+.mini-bar { height: 16px; background: var(--chrome); border-bottom: 0.5px solid var(--chrome-line); display: flex; align-items: center; gap: 3px; padding: 0 6px; }
+.mini-bar i { width: 4px; height: 4px; border-radius: 50%; background: var(--text-3); opacity: .6; display: block; }
+.mini-body { padding: 7px; display: grid; gap: 5px; }
+.mini-card { background: var(--card); border: 0.5px solid var(--card-stroke); border-radius: 4px; min-height: 26px; }
+/* 缩放态里的分类分栏缩略 */
+.mini-cols { padding: 7px; display: grid; gap: 6px; align-items: start; }
+.mini-col { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.mini-cat { background: var(--card); border: 0.5px solid var(--card-stroke); border-radius: 5px; padding: 3px; }
+.mini-cat .mh { display: block; height: 3px; width: 42%; border-radius: 2px; background: var(--text-3); opacity: .4; margin-bottom: 3px; }
+.mini-cat .mr { display: flex; align-items: center; gap: 3px; height: 10px; }
+.mini-cat .mr i { width: 6px; height: 6px; border-radius: 1.8px; background: var(--tint, var(--text-3)); flex: none; }
+.mini-cat .mr .ln { height: 2px; flex: 1; border-radius: 1px; background: var(--sep); }
+.mini-note { font-size: 10.5px; color: var(--text-3); margin-top: auto; }
+
+/* ---------- 图例 ---------- */
+.legend {
+  display: flex; gap: 18px; flex-wrap: wrap;
+  margin-top: 14px; padding-top: 12px; border-top: 0.5px solid var(--sep);
+  font-size: 11px; color: var(--text-3);
+}
+.legend .lg { display: flex; align-items: center; gap: 6px; }
+.legend .swatch { width: 11px; height: 11px; border-radius: 3px; }
+.legend .line { width: 14px; height: 0.5px; background: var(--text-3); }
+
+.note-box {
+  margin-top: 16px; padding: 12px 14px;
+  background: var(--field); border-radius: 8px;
+  font-size: 12px; color: var(--text-2); line-height: 1.6;
+}
+.note-box b { color: var(--text); font-weight: 600; }
+.note-box code { font-family: var(--mono); font-size: 11px; background: var(--sep-soft); padding: 1px 4px; border-radius: 3px; }
+
+footer {
+  max-width: 1180px; margin: 0 auto; padding: 0 28px 60px;
+  font-size: 11.5px; color: var(--text-3); line-height: 1.7;
+}
+footer code { font-family: var(--mono); font-size: 10.5px; }
+
+/* 窄屏 */
+@media (max-width: 900px) {
+  .grid, .grid.n5 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .cols { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .cols.c2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .split { flex-direction: column; }
+  .sidebar { width: 100%; border-right: none; border-bottom: 0.5px solid var(--chrome-line); }
+}
+@media (max-width: 620px) {
+  .cols, .cols.c2 { grid-template-columns: minmax(0,1fr); }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">众妙 · macOS 适配界面参考稿 <em>DESIGN-macOS.md 配套</em></div>
+  <nav>
+    <a href="#screen-1">01 框架</a>
+    <a href="#screen-2">02 宽屏首页</a>
+    <a href="#screen-3">03 路线 A · 已定</a>
+    <a href="#screen-5">04 菜单与快捷键</a>
+    <a href="#screen-6">05 缩放态</a>
+    <a href="#archive-b">附表 · B 搁置</a>
+  </nav>
+  <button class="theme-btn" id="themeBtn" type="button">切换 亮/暗</button>
+</header>
+
+<main>
+
+  <div class="doc-head">
+    <h1>众妙 macOS 平台适配 · 界面参考稿</h1>
+    <p>本页把 iOS 版本的视觉语言按 macOS 的窗口模型重新排布。所有尺寸、圆角、色值取自 <code>Sources/Shared</code> 与 <code>ServiceCatalog.swift</code>，与《DESIGN-macOS.md》第 1 章一致。</p>
+    <div class="meta">
+      <span class="chip">圆角 16 / 12 / 9</span>
+      <span class="chip">入口行 44 · Glyph 28</span>
+      <span class="chip">分类分栏 3 栏 · 栏宽 364</span>
+      <span class="chip">14 组服务色板</span>
+      <span class="chip">亮 / 暗双态</span>
+    </div>
+  </div>
+
+  <!-- ============ 01 主窗口框架 ============ -->
+  <section class="screen" id="screen-1">
+    <div class="screen-head"><span class="screen-idx">01</span><h2>主窗口框架</h2></div>
+    <p class="screen-desc">平台级 chrome 与内容容器。内容区按<strong>已选定的路线 A</strong> 呈现：窗口内顶部标签切换三页，下方是分类分栏的首页。虚线块标的是各分类区段的位置与高度比例，实线形态见 02 / 03。</p>
+    <div class="spec-row">
+      <span class="spec">初始 1180 × 760</span>
+      <span class="spec">最小 720 × 480</span>
+      <span class="spec">内容最大宽 1180 居中</span>
+      <span class="spec">标题栏 38</span>
+      <span class="spec">标签栏 36</span>
+    </div>
+    <div class="stage">
+      <div class="menubar">
+        <span class="apple"></span>
+        <span class="app-name">众妙</span>
+        <span class="mi">文件</span><span class="mi">编辑</span><span class="mi">视图</span><span class="mi">窗口</span><span class="mi">帮助</span>
+        <span class="right"><span>100%</span><span>01:04</span></span>
+      </div>
+      <div class="win" style="border-radius:0 0 10px 10px;border-top:none;">
+        <div class="win-bar">
+          <div class="lights"><i class="l1"></i><i class="l2"></i><i class="l3"></i></div>
+          <div class="win-title">众妙</div>
+          <div class="win-tools">
+            <div class="tool-btn"><svg viewBox="0 0 24 24" fill="none"><path d="M20 11a8 8 0 10-2.3 5.7M20 5v6h-6"/></svg></div>
+            <div class="tool-btn"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg></div>
+          </div>
+        </div>
+        <div style="padding:14px 16px 22px;min-height:512px;">
+          <div class="fw-tabs">
+            <span class="fw-tab on"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/><rect x="13" y="13" width="7" height="7" rx="1.6"/></svg>应用</span>
+            <span class="fw-tab"><svg viewBox="0 0 24 24"><path d="M6 16V9a6 6 0 1112 0v7l1.5 2H4.5L6 16z"/><path d="M10 20a2 2 0 004 0"/></svg>通知<span class="fw-badge">3</span></span>
+            <span class="fw-tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5l1.6 1.2-2 3.4-2-.8a7 7 0 01-1.6.9l-.3 2.1h-4l-.3-2.1a7 7 0 01-1.6-.9l-2 .8-2-3.4 1.6-1.2a7 7 0 010-1.8L3 10.5l2-3.4 2 .8a7 7 0 011.6-.9L9 4.9h4l.3 2.1a7 7 0 011.6.9l2-.8 2 3.4-1.6 1.2a7 7 0 010 1.8z"/></svg>设置</span>
+            <span class="fw-hint">标签栏 36pt · 窗口内切换，非底部栏</span>
+          </div>
+          <div class="toolbar-row">
+            <div class="search-field">
+              <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg>
+              <span>搜索应用、任务与记录</span>
+            </div>
+            <div class="toolbar-spacer"></div>
+            <span class="tag gray" style="font-size:10.5px;">14 个服务</span>
+          </div>
+          <div class="fw-cols">
+            <div class="fw-col">
+              <div class="fw-card" style="min-height:94px;"><span class="fw-in">效率与任务 · 1 行</span></div>
+              <div class="fw-card" style="min-height:226px;"><span class="fw-in">影像与媒体 · 4 行</span></div>
+            </div>
+            <div class="fw-col">
+              <div class="fw-card" style="min-height:94px;"><span class="fw-in">财务 · 1 行</span></div>
+              <div class="fw-card" style="min-height:226px;"><span class="fw-in">知识与阅读 · 4 行</span></div>
+            </div>
+            <div class="fw-col">
+              <div class="fw-card" style="min-height:182px;"><span class="fw-in">基建与运维 · 3 行</span></div>
+              <div class="fw-card" style="min-height:94px;"><span class="fw-in">生活 · 1 行</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="caption"><b>说明：</b>窗口圆角与阴影交给系统窗口管理器，参考稿只示意比例；顶部为 macOS 系统菜单栏，窗口内标题栏保留红黄绿三色按钮位。内容区的虚线块是框架示意——分类区段的位置与高度比例（94 / 182 / 226 分别对应 1 / 3 / 4 个服务行），不画具体行。</div>
+  </section>
+
+  <!-- ============ 02 宽屏首页：分类分栏 ============ -->
+  <section class="screen" id="screen-2">
+    <div class="screen-head"><span class="screen-idx">02</span><h2>宽屏首页：分类分栏 + 紧凑入口</h2></div>
+    <p class="screen-desc">1180 宽窗口下的首页。6 个分类按注册表顺序横向切成 3 栏，每栏内分类纵向排列；16 圆角卡片承载「一个分类区段」，卡内是 44pt 行条目。竖屏的「一列往下堆」换成宽屏的「多栏并排」，14 个入口一屏看完。</p>
+    <div class="spec-row">
+      <span class="spec">3 栏 · 栏宽 364 · 栏距 20</span>
+      <span class="spec">分类卡 圆角 16 / padding 12</span>
+      <span class="spec">行高 44 · Glyph 28</span>
+      <span class="spec">行分隔 0.5 / separator 0.35</span>
+      <span class="spec">悬停底 separator 0.06</span>
+    </div>
+    <div class="stage">
+      <div class="menubar">
+        <span class="apple"></span>
+        <span class="app-name">众妙</span>
+        <span class="mi">文件</span><span class="mi">编辑</span><span class="mi">视图</span><span class="mi">窗口</span><span class="mi">帮助</span>
+        <span class="right"><span>01:04</span></span>
+      </div>
+      <div class="win" style="border-radius:0 0 10px 10px;border-top:none;">
+        <div class="win-bar">
+          <div class="lights"><i class="l1"></i><i class="l2"></i><i class="l3"></i></div>
+          <div class="win-title">众妙</div>
+          <div class="win-tools">
+            <div class="tool-btn"><svg viewBox="0 0 24 24" fill="none"><path d="M20 11a8 8 0 10-2.3 5.7M20 5v6h-6"/></svg></div>
+            <div class="tool-btn"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg></div>
+          </div>
+        </div>
+        <div class="body-pad" style="max-width:1132px;margin:0 auto;">
+          <div class="toolbar-row">
+            <div class="search-field">
+              <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg>
+              <span>搜索应用、任务与记录</span>
+            </div>
+            <div class="toolbar-spacer"></div>
+          </div>
+
+          <div class="cols">
+
+            <!-- 第 1 栏：效率与任务(1) + 影像与媒体(4) -->
+            <div class="col">
+              <div class="cat-card">
+                <div class="cat-head">
+                  <span class="cat-ico"><svg viewBox="0 0 24 24" fill="none"><path d="M6 7h9M6 12h12M6 17h7"/></svg></span>
+                  <span class="cat-name">效率与任务</span> <span class="count">1</span>
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-shenshi)"><svg viewBox="0 0 24 24"><path d="M6 7h9M6 12h12M6 17h7"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">慎始</span><span class="srow-sum">任务、清单与看板</span></div>
+                  
+                </div>
+              </div>
+
+              <div class="cat-card">
+                <div class="cat-head">
+                  <span class="cat-ico"><svg viewBox="0 0 24 24" fill="none"><rect x="4" y="6" width="14" height="12" rx="2"/><path d="M8 6l2-2h6l2 2"/></svg></span>
+                  <span class="cat-name">影像与媒体</span> <span class="count">4</span>
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-mujian)"><svg viewBox="0 0 24 24"><path d="M7 8c0-2 1.6-3.2 3.4-3.2S13.8 6 13.8 8c0 3-3.4 4.2-3.4 7.6"/><path d="M11 19.2c0-2 1.3-3.2 2.8-4.4"/><circle cx="17" cy="15.5" r="2.6"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">幕间</span><span class="srow-sum">观演与观影记录</span></div>
+                  
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-bili)"><svg viewBox="0 0 24 24"><path d="M9 7l8 5-8 5z"/><rect x="3.5" y="4.5" width="17" height="15" rx="3"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">拾帧集</span><span class="srow-sum">B 站观看历史与统计</span></div>
+                  <div class="ret"><span class="unread">3</span></div>
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-liuxia)"><svg viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="13" rx="2.5"/><path d="M7 15l3.2-3.2 2.2 2.2 3.6-3.6"/><circle cx="16" cy="9" r="1.2"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">流霞</span><span class="srow-sum">朝霞晚霞预报</span></div>
+                  
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-tuqie)"><svg viewBox="0 0 24 24"><circle cx="6.5" cy="7.5" r="2.2"/><circle cx="6.5" cy="16.5" r="2.2"/><path d="M8.5 9l10 8M18.5 7l-10 8"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">图切</span><span class="srow-sum">图片切割与导出</span></div>
+                  
+                </div>
+              </div>
+            </div>
+
+            <!-- 第 2 栏：财务(1) + 知识与阅读(4) -->
+            <div class="col">
+              <div class="cat-card">
+                <div class="cat-head">
+                  <span class="cat-ico"><svg viewBox="0 0 24 24" fill="none"><path d="M4 17l5-6 3 3 6-8"/></svg></span>
+                  <span class="cat-name">财务</span> <span class="count">1</span>
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-huozhi)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5"/><path d="M12 4.5V12l5.3 5.3"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">货殖</span><span class="srow-sum">记账与资产概览</span></div>
+                  
+                </div>
+              </div>
+
+              <div class="cat-card">
+                <div class="cat-head">
+                  <span class="cat-ico"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6h5a2 2 0 012 2v10H6a2 2 0 00-2 2zM20 6h-5a2 2 0 00-2 2v10h5a2 2 0 012 2z"/></svg></span>
+                  <span class="cat-name">知识与阅读</span> <span class="count">4</span>
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-diarum)"><svg viewBox="0 0 24 24"><path d="M5 5.5h7a2 2 0 012 2V19a2 2 0 00-2-2H5zM19 5.5h-3a2 2 0 00-2 2V19a2 2 0 012-2h3z"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">吾身</span><span class="srow-sum">日记与定期回顾</span></div>
+                  
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-qingye)"><svg viewBox="0 0 24 24"><path d="M19 5C12 5 7 9 7 15c0 2 1 4 1 4s2-1 4-1c6 0 7-7 7-13z"/><path d="M8 19c1.5-4 4-6.5 8-8.5"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">青野集</span><span class="srow-sum">植物养护与提醒</span></div>
+                  
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-chaxin)"><svg viewBox="0 0 24 24"><rect x="4.5" y="5" width="15" height="14" rx="2"/><path d="M7.5 9.5h6M7.5 13h9M7.5 16h5"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">察新</span><span class="srow-sum">版本发布监控</span></div>
+                  
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-qiansi)"><svg viewBox="0 0 24 24"><circle cx="6" cy="7" r="1.8"/><circle cx="18" cy="7" r="1.8"/><circle cx="12" cy="18" r="1.8"/><path d="M7.5 8.5l3.4 7.4M16.5 8.5l-3.4 7.4M8 7h8"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">牵丝</span><span class="srow-sum">关系与脉络整理</span></div>
+                  
+                </div>
+              </div>
+            </div>
+
+            <!-- 第 3 栏：基建与运维(3) + 生活(1) -->
+            <div class="col">
+              <div class="cat-card">
+                <div class="cat-head">
+                  <span class="cat-ico"><svg viewBox="0 0 24 24" fill="none"><rect x="3.5" y="4" width="17" height="6" rx="1.5"/><rect x="3.5" y="14" width="17" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/></svg></span>
+                  <span class="cat-name">基建与运维</span> <span class="count">3</span>
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-ntfy)"><svg viewBox="0 0 24 24"><path d="M8 15V10a4 4 0 018 0v5l1.6 2H6.4z"/><path d="M10.6 19a1.5 1.5 0 002.8 0"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">ntfy</span><span class="srow-sum">自托管推送与告警</span></div>
+                  <div class="ret"><span class="unread">12</span></div>
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-qbhive)"><svg viewBox="0 0 24 24"><path d="M12 4v10M7.5 9.5L12 14l4.5-4.5"/><path d="M5 18h14"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">蜂巢</span><span class="srow-sum">下载任务管理</span></div>
+                  
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-whoami)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.6"/><circle cx="5.5" cy="6.5" r="1.5"/><circle cx="18.5" cy="6.5" r="1.5"/><circle cx="5.5" cy="17.5" r="1.5"/><circle cx="18.5" cy="17.5" r="1.5"/><path d="M7 7.5l3 3M17 7.5l-3 3M7 16.5l3-3M17 16.5l-3-3"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">whoami</span><span class="srow-sum">网络出口与身份信息</span></div>
+                  
+                </div>
+              </div>
+
+              <div class="cat-card">
+                <div class="cat-head">
+                  <span class="cat-ico"><svg viewBox="0 0 24 24" fill="none"><path d="M6 16c0-5 4-9 9-9 0 5-4 9-9 9z"/></svg></span>
+                  <span class="cat-name">生活</span> <span class="count">1</span>
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-yuexi)"><svg viewBox="0 0 24 24"><path d="M15.5 4.8A7.5 7.5 0 1015.5 19a6 6 0 010-14.2z"/><path d="M18.5 6l.6 1.3 1.4.2-1 .9.2 1.4-1.2-.7-1.2.7.2-1.4-1-.9 1.4-.2z" class="fill"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">月汐</span><span class="srow-sum">周期与身体记录</span></div>
+                  
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <div style="font-size:11px;color:var(--text-3);line-height:1.6;border-top:0.5px solid var(--sep-soft);padding-top:10px;margin-top:18px;">
+            共 14 个服务 · 12 个离线可用 · 3 栏共 338pt 高，1180×760 一屏可见<br>
+            「离线可用」是能力（自带 Service Worker 缓存，断网也能打开），不是状态。macOS 行内不显示它——14 个入口里 12 个同款绿标签对「点哪个」没有区分度。能力信息改由悬停 tooltip 与右键菜单给出。
+          </div>
+        </div>
+      </div>
+
+      <div class="legend">
+        <span class="lg"><span class="swatch" style="background:linear-gradient(135deg, color-mix(in srgb, #5B5BD6 95%, #fff), color-mix(in srgb, #5B5BD6 72%, #fff))"></span>Glyph 28 · 圆角 7.84 · 渐变 0.95→0.72</span>
+        <span class="lg"><span class="tag orange" style="--c:var(--orange)">未配置</span>CapsuleTag · 行内只留告警</span>
+        <span class="lg"><span class="line"></span>分类卡 圆角 16 · 0.5 描边 · r6 y2 阴影</span>
+      </div>
+      <div class="note-box">
+        <b>为什么这样排：</b>iOS 竖屏下「一列分类从上往下滚」是对的；搬到 1180 宽的窗口里，同一个结构会白扔掉一半横向空间——卡片只是被摊得更宽，14 个入口仍排不进一屏。这里把 6 个分类横向切成 3 栏（顺序不变：效率 → 影像 → 财务 → 知识 → 基建 → 生活），卡片从「一个服务一张」上移到「一个分类一张」，入口本身降为 44pt 行。纵向占用从 1044 降到 338。
+      </div>
+    </div>
+    <div class="caption"><b>说明：</b>行条目里的白色图形是占位示意，实际是 SF Symbol。分类图标对应 <code>checklist</code> / <code>photo.on.rectangle.angled</code> / <code>chart.line.uptrend.xyaxis</code> / <code>books.vertical</code> / <code>server.rack</code> / <code>leaf</code>。2 栏布局见 05 屏的最小窗口态。</div>
+  </section>
+  <!-- ============ 03 路线 A ============ -->
+  <section class="screen" id="screen-3">
+    <div class="screen-head"><span class="screen-idx">03</span><h2>导航骨架 · 路线 A（已选定）</h2></div>
+    <p class="screen-desc"><strong>已选定的骨架。</strong>在现有三页结构上加 macOS 外壳：窗口顶部的标签切换取代 iOS 底部栏。首页内容与 02 完全相同——分类分栏 + 服务行，骨架只决定「这一页怎么被选中」。改造面只有 <code>RootView</code> 一处平台分支。</p>
+    <div class="spec-row">
+      <span class="spec">结构：标签 + NavigationStack</span>
+      <span class="spec">内容宽 1132 · 3 栏</span>
+      <span class="spec">纵向 -36（标签栏）</span>
+      <span class="spec">对下层侵入：零</span>
+    </div>
+    <div class="stage">
+      <div class="menubar">
+        <span class="apple"></span>
+        <span class="app-name">众妙</span>
+        <span class="mi">文件</span><span class="mi">编辑</span><span class="mi">视图</span><span class="mi">窗口</span><span class="mi">帮助</span>
+        <span class="right"><span>01:04</span></span>
+      </div>
+      <div class="win" style="border-radius:0 0 10px 10px;border-top:none;">
+        <div class="win-bar">
+          <div class="lights"><i class="l1"></i><i class="l2"></i><i class="l3"></i></div>
+          <div class="win-title">众妙</div>
+          <div class="win-tools">
+            <div class="tool-btn"><svg viewBox="0 0 24 24" fill="none"><path d="M20 11a8 8 0 10-2.3 5.7M20 5v6h-6"/></svg></div>
+            <div class="tool-btn"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg></div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tab active"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/><rect x="13" y="13" width="7" height="7" rx="1.6"/></svg>应用</div>
+          <div class="tab"><svg viewBox="0 0 24 24"><path d="M8 15V10a4 4 0 018 0v5l1.6 2H6.4z"/><path d="M10.6 19a1.5 1.5 0 002.8 0"/></svg>通知<span class="badge">3</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.4M12 18.6V21M3 12h2.4M18.6 12H21M5.6 5.6l1.7 1.7M16.7 16.7l1.7 1.7M18.4 5.6l-1.7 1.7M7.3 16.7l-1.7 1.7"/></svg>设置</div>
+        </div>
+        <div class="body-pad" style="max-width:1132px;margin:0 auto;">
+          <div class="toolbar-row">
+            <div class="search-field">
+              <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg>
+              <span>搜索应用、任务与记录</span>
+            </div>
+            <div class="toolbar-spacer"></div>
+          </div>
+<div class="cols">
+
+            <!-- 第 1 栏：效率与任务(1) + 影像与媒体(4) -->
+            <div class="col">
+              <div class="cat-card">
+                <div class="cat-head">
+                  <span class="cat-ico"><svg viewBox="0 0 24 24" fill="none"><path d="M6 7h9M6 12h12M6 17h7"/></svg></span>
+                  <span class="cat-name">效率与任务</span> <span class="count">1</span>
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-shenshi)"><svg viewBox="0 0 24 24"><path d="M6 7h9M6 12h12M6 17h7"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">慎始</span><span class="srow-sum">任务、清单与看板</span></div>
+                  
+                </div>
+              </div>
+
+              <div class="cat-card">
+                <div class="cat-head">
+                  <span class="cat-ico"><svg viewBox="0 0 24 24" fill="none"><rect x="4" y="6" width="14" height="12" rx="2"/><path d="M8 6l2-2h6l2 2"/></svg></span>
+                  <span class="cat-name">影像与媒体</span> <span class="count">4</span>
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-mujian)"><svg viewBox="0 0 24 24"><path d="M7 8c0-2 1.6-3.2 3.4-3.2S13.8 6 13.8 8c0 3-3.4 4.2-3.4 7.6"/><path d="M11 19.2c0-2 1.3-3.2 2.8-4.4"/><circle cx="17" cy="15.5" r="2.6"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">幕间</span><span class="srow-sum">观演与观影记录</span></div>
+                  
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-bili)"><svg viewBox="0 0 24 24"><path d="M9 7l8 5-8 5z"/><rect x="3.5" y="4.5" width="17" height="15" rx="3"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">拾帧集</span><span class="srow-sum">B 站观看历史与统计</span></div>
+                  <div class="ret"><span class="unread">3</span></div>
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-liuxia)"><svg viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="13" rx="2.5"/><path d="M7 15l3.2-3.2 2.2 2.2 3.6-3.6"/><circle cx="16" cy="9" r="1.2"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">流霞</span><span class="srow-sum">朝霞晚霞预报</span></div>
+                  
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-tuqie)"><svg viewBox="0 0 24 24"><circle cx="6.5" cy="7.5" r="2.2"/><circle cx="6.5" cy="16.5" r="2.2"/><path d="M8.5 9l10 8M18.5 7l-10 8"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">图切</span><span class="srow-sum">图片切割与导出</span></div>
+                  
+                </div>
+              </div>
+            </div>
+
+            <!-- 第 2 栏：财务(1) + 知识与阅读(4) -->
+            <div class="col">
+              <div class="cat-card">
+                <div class="cat-head">
+                  <span class="cat-ico"><svg viewBox="0 0 24 24" fill="none"><path d="M4 17l5-6 3 3 6-8"/></svg></span>
+                  <span class="cat-name">财务</span> <span class="count">1</span>
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-huozhi)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5"/><path d="M12 4.5V12l5.3 5.3"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">货殖</span><span class="srow-sum">记账与资产概览</span></div>
+                  
+                </div>
+              </div>
+
+              <div class="cat-card">
+                <div class="cat-head">
+                  <span class="cat-ico"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6h5a2 2 0 012 2v10H6a2 2 0 00-2 2zM20 6h-5a2 2 0 00-2 2v10h5a2 2 0 012 2z"/></svg></span>
+                  <span class="cat-name">知识与阅读</span> <span class="count">4</span>
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-diarum)"><svg viewBox="0 0 24 24"><path d="M5 5.5h7a2 2 0 012 2V19a2 2 0 00-2-2H5zM19 5.5h-3a2 2 0 00-2 2V19a2 2 0 012-2h3z"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">吾身</span><span class="srow-sum">日记与定期回顾</span></div>
+                  
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-qingye)"><svg viewBox="0 0 24 24"><path d="M19 5C12 5 7 9 7 15c0 2 1 4 1 4s2-1 4-1c6 0 7-7 7-13z"/><path d="M8 19c1.5-4 4-6.5 8-8.5"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">青野集</span><span class="srow-sum">植物养护与提醒</span></div>
+                  
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-chaxin)"><svg viewBox="0 0 24 24"><rect x="4.5" y="5" width="15" height="14" rx="2"/><path d="M7.5 9.5h6M7.5 13h9M7.5 16h5"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">察新</span><span class="srow-sum">版本发布监控</span></div>
+                  
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-qiansi)"><svg viewBox="0 0 24 24"><circle cx="6" cy="7" r="1.8"/><circle cx="18" cy="7" r="1.8"/><circle cx="12" cy="18" r="1.8"/><path d="M7.5 8.5l3.4 7.4M16.5 8.5l-3.4 7.4M8 7h8"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">牵丝</span><span class="srow-sum">关系与脉络整理</span></div>
+                  
+                </div>
+              </div>
+            </div>
+
+            <!-- 第 3 栏：基建与运维(3) + 生活(1) -->
+            <div class="col">
+              <div class="cat-card">
+                <div class="cat-head">
+                  <span class="cat-ico"><svg viewBox="0 0 24 24" fill="none"><rect x="3.5" y="4" width="17" height="6" rx="1.5"/><rect x="3.5" y="14" width="17" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/></svg></span>
+                  <span class="cat-name">基建与运维</span> <span class="count">3</span>
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-ntfy)"><svg viewBox="0 0 24 24"><path d="M8 15V10a4 4 0 018 0v5l1.6 2H6.4z"/><path d="M10.6 19a1.5 1.5 0 002.8 0"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">ntfy</span><span class="srow-sum">自托管推送与告警</span></div>
+                  <div class="ret"><span class="unread">12</span></div>
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-qbhive)"><svg viewBox="0 0 24 24"><path d="M12 4v10M7.5 9.5L12 14l4.5-4.5"/><path d="M5 18h14"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">蜂巢</span><span class="srow-sum">下载任务管理</span></div>
+                  
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-whoami)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.6"/><circle cx="5.5" cy="6.5" r="1.5"/><circle cx="18.5" cy="6.5" r="1.5"/><circle cx="5.5" cy="17.5" r="1.5"/><circle cx="18.5" cy="17.5" r="1.5"/><path d="M7 7.5l3 3M17 7.5l-3 3M7 16.5l3-3M17 16.5l-3-3"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">whoami</span><span class="srow-sum">网络出口与身份信息</span></div>
+                  
+                </div>
+              </div>
+
+              <div class="cat-card">
+                <div class="cat-head">
+                  <span class="cat-ico"><svg viewBox="0 0 24 24" fill="none"><path d="M6 16c0-5 4-9 9-9 0 5-4 9-9 9z"/></svg></span>
+                  <span class="cat-name">生活</span> <span class="count">1</span>
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-yuexi)"><svg viewBox="0 0 24 24"><path d="M15.5 4.8A7.5 7.5 0 1015.5 19a6 6 0 010-14.2z"/><path d="M18.5 6l.6 1.3 1.4.2-1 .9.2 1.4-1.2-.7-1.2.7.2-1.4-1-.9 1.4-.2z" class="fill"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">月汐</span><span class="srow-sum">周期与身体记录</span></div>
+                  
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="caption"><b>改造面：</b><code>RootView</code> 加 macOS 分支 + 新增菜单文件。<code>CatalogView</code> / <code>NotificationsView</code> / <code>SettingsView</code> / 12 个原生页不动。标签栏占 36pt，3 栏仍有 338pt 高，一屏可放下。</div>
+  </section>
+
+  <!-- ============ 04 路线 B ============ -->
+
+  <!-- ============ 05 菜单栏与快捷键 ============ -->
+  <section class="screen" id="screen-5">
+    <div class="screen-head"><span class="screen-idx">04</span><h2>菜单栏命令与键盘快捷键</h2></div>
+    <p class="screen-desc">把 App 已有动作映射进系统菜单，并给高频动作配快捷键。不新增业务能力，菜单文案与 App 内按钮保持一致。</p>
+    <div class="spec-row">
+      <span class="spec">菜单：众妙 / 文件 / 编辑 / 视图 / 窗口 / 帮助</span>
+      <span class="spec">不设「开机自启」</span>
+    </div>
+    <div class="stage">
+      <div class="menubar">
+        <span class="apple"></span>
+        <span class="app-name">众妙</span>
+        <span class="mi">文件</span><span class="mi">编辑</span><span class="mi">视图</span><span class="mi">窗口</span><span class="mi">帮助</span>
+        <span class="right"><span>01:04</span></span>
+      </div>
+      <div style="display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap;padding-top:8px;">
+        <div class="menu-pop" style="position:static;left:auto;top:auto;">
+          <div class="menu-item">关于众妙</div>
+          <div class="menu-sep"></div>
+          <div class="menu-item">设置… <span class="k">⌘,</span></div>
+          <div class="menu-sep"></div>
+          <div class="menu-item">同步全部 <span class="k">⌘R</span></div>
+          <div class="menu-item">新建窗口 <span class="k">⌘N</span></div>
+          <div class="menu-sep"></div>
+          <div class="menu-item checked"><span class="tick"></span>应用 <span class="k">⌘1</span></div>
+          <div class="menu-item">通知 <span class="k">⌘2</span></div>
+          <div class="menu-item">设置 <span class="k">⌘3</span></div>
+          <div class="menu-sep"></div>
+          <div class="menu-item dim">隐藏众妙 <span class="k">⌘H</span></div>
+          <div class="menu-item">退出众妙 <span class="k">⌘Q</span></div>
+        </div>
+
+      <table class="keytable" style="flex:1 1 420px;min-width:0;width:auto;">
+        <thead>
+          <tr><th style="width:110px;">快捷键</th><th>动作</th><th style="width:150px;">作用域</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="k"><span class="kbd">⌘1</span></td><td class="d">切到「应用」</td><td class="d">全局</td></tr>
+          <tr><td class="k"><span class="kbd">⌘2</span></td><td class="d">切到「通知」</td><td class="d">全局</td></tr>
+          <tr><td class="k"><span class="kbd">⌘3</span></td><td class="d">切到「设置」</td><td class="d">全局</td></tr>
+          <tr><td class="k"><span class="kbd">⌘,</span></td><td class="d">设置</td><td class="d">全局</td></tr>
+          <tr><td class="k"><span class="kbd">⌘N</span></td><td class="d">新建窗口</td><td class="d">全局</td></tr>
+          <tr><td class="k"><span class="kbd">⌘R</span></td><td class="d">刷新 / 重新加载</td><td class="d">当前页</td></tr>
+          <tr><td class="k"><span class="kbd">⇧⌘R</span></td><td class="d">强制刷新（绕过缓存）</td><td class="d">网页页</td></tr>
+          <tr><td class="k"><span class="kbd">⌘F</span></td><td class="d">聚焦搜索</td><td class="d">首页 / 原生页 / 通知</td></tr>
+          <tr><td class="k"><span class="kbd">⌘[</span> <span class="kbd">⌘]</span></td><td class="d">后退 / 前进</td><td class="d">网页页</td></tr>
+          <tr><td class="k"><span class="kbd">⌘L</span></td><td class="d">复制当前地址</td><td class="d">网页页</td></tr>
+          <tr><td class="k"><span class="kbd">⌘⇧O</span></td><td class="d">在浏览器打开</td><td class="d">网页页</td></tr>
+          <tr><td class="k"><span class="kbd">Delete</span></td><td class="d">删除选中通知</td><td class="d">通知页</td></tr>
+          <tr><td class="k"><span class="kbd">⇧⌘A</span></td><td class="d">全部标为已读</td><td class="d">通知页</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+    <div class="caption"><b>说明：</b><code>⌘R</code> 按当前页类型分派——网页页重新加载，列表页刷新数据。系统保留键（<code>⌘Tab</code> / <code>⌘Space</code> / <code>⌘Q</code>）不占用。</div>
+  </section>
+
+  <!-- ============ 06 窗口缩放态 ============ -->
+  <section class="screen" id="screen-6">
+    <div class="screen-head"><span class="screen-idx">05</span><h2>窗口缩放三态</h2></div>
+    <p class="screen-desc">断点只驱动分栏的栏数，行条目的高度与内部排布不变。最小窗口退到 2 栏，初始窗口 3 栏，再宽则内容封顶 1180 居中、栏宽增长。</p>
+    <div class="spec-row">
+      <span class="spec">最小 720 × 480 · 2 栏</span>
+      <span class="spec">初始 1180 × 760 · 3 栏</span>
+      <span class="spec">更宽 · 内容封顶 1180 · 居中</span>
+    </div>
+    <div class="stage">
+      <div class="scale-row">
+        <div class="scale-item">
+          <span class="lab">最小 720 × 480</span>
+          <div class="mini-win" style="width:200px;height:134px;">
+            <div class="mini-bar"><i></i><i></i><i></i></div>
+            <div class="mini-cols" style="grid-template-columns:repeat(2,minmax(0,1fr));">
+              <div class="mini-col">
+                <div class="mini-cat" style="--tint:var(--t-shenshi);"><span class="mh"></span><span class="mr"><i></i><span class="ln"></span></span></div>
+                <div class="mini-cat" style="--tint:var(--t-mujian);"><span class="mh"></span><span class="mr"><i></i><span class="ln"></span></span><span class="mr"><i></i><span class="ln"></span></span><span class="mr"><i></i><span class="ln"></span></span><span class="mr"><i></i><span class="ln"></span></span></div>
+                <div class="mini-cat" style="--tint:var(--t-huozhi);"><span class="mh"></span><span class="mr"><i></i><span class="ln"></span></span></div>
+              </div>
+              <div class="mini-col">
+                <div class="mini-cat" style="--tint:var(--t-diarum);"><span class="mh"></span><span class="mr"><i></i><span class="ln"></span></span><span class="mr"><i></i><span class="ln"></span></span><span class="mr"><i></i><span class="ln"></span></span><span class="mr"><i></i><span class="ln"></span></span></div>
+                <div class="mini-cat" style="--tint:var(--t-ntfy);"><span class="mh"></span><span class="mr"><i></i><span class="ln"></span></span><span class="mr"><i></i><span class="ln"></span></span><span class="mr"><i></i><span class="ln"></span></span></div>
+                <div class="mini-cat" style="--tint:var(--t-yuexi);"><span class="mh"></span><span class="mr"><i></i><span class="ln"></span></span></div>
+              </div>
+            </div>
+          </div>
+          <span class="mini-note">2 栏 · 栏宽 326 · 纵向滚动约 1.4 屏</span>
+        </div>
+        <div class="scale-item">
+          <span class="lab">初始 1180 × 760</span>
+          <div class="mini-win" style="width:330px;height:213px;">
+            <div class="mini-bar"><i></i><i></i><i></i></div>
+            <div class="mini-cols" style="grid-template-columns:repeat(3,minmax(0,1fr));">
+              <div class="mini-col">
+                <div class="mini-cat" style="--tint:var(--t-shenshi);"><span class="mh"></span><span class="mr"><i></i><span class="ln"></span></span></div>
+                <div class="mini-cat" style="--tint:var(--t-mujian);"><span class="mh"></span><span class="mr"><i></i><span class="ln"></span></span><span class="mr"><i></i><span class="ln"></span></span><span class="mr"><i></i><span class="ln"></span></span><span class="mr"><i></i><span class="ln"></span></span></div>
+              </div>
+              <div class="mini-col">
+                <div class="mini-cat" style="--tint:var(--t-huozhi);"><span class="mh"></span><span class="mr"><i></i><span class="ln"></span></span></div>
+                <div class="mini-cat" style="--tint:var(--t-diarum);"><span class="mh"></span><span class="mr"><i></i><span class="ln"></span></span><span class="mr"><i></i><span class="ln"></span></span><span class="mr"><i></i><span class="ln"></span></span><span class="mr"><i></i><span class="ln"></span></span></div>
+              </div>
+              <div class="mini-col">
+                <div class="mini-cat" style="--tint:var(--t-ntfy);"><span class="mh"></span><span class="mr"><i></i><span class="ln"></span></span><span class="mr"><i></i><span class="ln"></span></span><span class="mr"><i></i><span class="ln"></span></span></div>
+                <div class="mini-cat" style="--tint:var(--t-yuexi);"><span class="mh"></span><span class="mr"><i></i><span class="ln"></span></span></div>
+              </div>
+            </div>
+          </div>
+          <span class="mini-note">3 栏 · 栏宽 364 · 14 个入口一屏可见</span>
+        </div>
+        <div class="scale-item">
+          <span class="lab">更宽 1400 × 900（内容封顶）</span>
+          <div class="mini-win" style="width:390px;height:252px;">
+            <div class="mini-bar"><i></i><i></i><i></i></div>
+            <div class="mini-cols" style="grid-template-columns:repeat(3,minmax(0,1fr));max-width:329px;margin:0 auto;">
+              <div class="mini-col">
+                <div class="mini-cat" style="--tint:var(--t-shenshi);"><span class="mh"></span><span class="mr"><i></i><span class="ln"></span></span></div>
+                <div class="mini-cat" style="--tint:var(--t-mujian);"><span class="mh"></span><span class="mr"><i></i><span class="ln"></span></span><span class="mr"><i></i><span class="ln"></span></span><span class="mr"><i></i><span class="ln"></span></span><span class="mr"><i></i><span class="ln"></span></span></div>
+              </div>
+              <div class="mini-col">
+                <div class="mini-cat" style="--tint:var(--t-huozhi);"><span class="mh"></span><span class="mr"><i></i><span class="ln"></span></span></div>
+                <div class="mini-cat" style="--tint:var(--t-diarum);"><span class="mh"></span><span class="mr"><i></i><span class="ln"></span></span><span class="mr"><i></i><span class="ln"></span></span><span class="mr"><i></i><span class="ln"></span></span><span class="mr"><i></i><span class="ln"></span></span></div>
+              </div>
+              <div class="mini-col">
+                <div class="mini-cat" style="--tint:var(--t-ntfy);"><span class="mh"></span><span class="mr"><i></i><span class="ln"></span></span><span class="mr"><i></i><span class="ln"></span></span><span class="mr"><i></i><span class="ln"></span></span></div>
+                <div class="mini-cat" style="--tint:var(--t-yuexi);"><span class="mh"></span><span class="mr"><i></i><span class="ln"></span></span></div>
+              </div>
+            </div>
+          </div>
+          <span class="mini-note">3 栏封顶 · 内容 1180 居中 · 两侧留白增长</span>
+        </div>
+      </div>
+      <div class="note-box">
+        <b>为什么不再摊列：</b>iOS 的卡片栅格靠加列来吃宽度，拉到 1400 会变成 7–8 列、每列 158pt 的窄条。macOS 这里改成「栏数封顶 3 + 栏宽增长」：栏宽 364 时一行能放下名称加摘要，再细分栏只会让摘要更早被截断。宽度继续增长的部分交给两侧留白，内容始终保持 1180 居中。
+      </div>
+    </div>
+    <div class="caption"><b>说明：</b>三态按同一比例（约 0.28）缩放，尺寸标注为窗口逻辑尺寸；行条目与分类卡的内部排布在三态下完全一致。</div>
+  </section>
+
+  <details class="archive" id="archive-b">
+    <summary>附表 · 路线 B（NavigationSplitView 侧边栏）<em>已搁置，保留作决策记录；选定结论见 03</em></summary>
+
+  <section class="screen" id="screen-b">
+    <div class="screen-head"><span class="screen-idx">附表</span><h2>路线 B：NavigationSplitView 侧边栏</h2></div>
+    <p class="screen-desc"><strong>已搁置的备选。</strong>左侧栏常驻，一级为三个入口，二级展开 6 个分类；右侧 detail 展示列表。侧栏占 226pt 后 detail 内容宽 922，按 3.1 的判定降为 2 栏（栏宽 451）——侧栏吃掉的横向空间会让分栏少一档，摘要才不会被截成四五个字。</p>
+    <div class="spec-row">
+      <span class="spec">结构：侧栏 + detail</span>
+      <span class="spec">侧栏 226</span>
+      <span class="spec">detail 内容 922 · 2 栏 · 栏宽 451</span>
+      <span class="spec">对下层侵入：低</span>
+    </div>
+    <div class="stage">
+      <div class="menubar">
+        <span class="apple"></span>
+        <span class="app-name">众妙</span>
+        <span class="mi">文件</span><span class="mi">编辑</span><span class="mi">视图</span><span class="mi">窗口</span><span class="mi">帮助</span>
+        <span class="right"><span>01:04</span></span>
+      </div>
+      <div class="win" style="border-radius:0 0 10px 10px;border-top:none;">
+        <div class="win-bar">
+          <div class="lights"><i class="l1"></i><i class="l2"></i><i class="l3"></i></div>
+          <div class="win-title">众妙</div>
+          <div class="win-tools">
+            <div class="tool-btn"><svg viewBox="0 0 24 24" fill="none"><path d="M20 11a8 8 0 10-2.3 5.7M20 5v6h-6"/></svg></div>
+            <div class="tool-btn"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg></div>
+          </div>
+        </div>
+        <div class="split">
+          <aside class="sidebar">
+            <div class="side-item sel">
+              <svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/><rect x="13" y="13" width="7" height="7" rx="1.6"/></svg>
+              应用
+            </div>
+            <div class="side-item">
+              <svg viewBox="0 0 24 24"><path d="M8 15V10a4 4 0 018 0v5l1.6 2H6.4z"/><path d="M10.6 19a1.5 1.5 0 002.8 0"/></svg>
+              通知 <span class="badge">3</span>
+            </div>
+            <div class="side-item">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.4M12 18.6V21M3 12h2.4M18.6 12H21M5.6 5.6l1.7 1.7M16.7 16.7l1.7 1.7M18.4 5.6l-1.7 1.7M7.3 16.7l-1.7 1.7"/></svg>
+              设置
+            </div>
+            <div class="side-head">分类</div>
+            <div class="side-item"><span class="dot" style="--tint:var(--t-shenshi)"></span>效率与任务</div>
+            <div class="side-item"><span class="dot" style="--tint:var(--t-mujian)"></span>影像与媒体</div>
+            <div class="side-item"><span class="dot" style="--tint:var(--t-huozhi)"></span>财务</div>
+            <div class="side-item"><span class="dot" style="--tint:var(--t-diarum)"></span>知识与阅读</div>
+            <div class="side-item"><span class="dot" style="--tint:var(--t-yuexi)"></span>生活</div>
+            <div class="side-item"><span class="dot" style="--tint:var(--t-ntfy)"></span>基建与运维</div>
+          </aside>
+          <div class="detail">
+            <div class="toolbar-row">
+              <div class="search-field">
+                <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg>
+                <span>搜索应用、任务与记录</span>
+              </div>
+              <div class="toolbar-spacer"></div>
+            </div>
+<div class="cols c2">
+<div class="col">
+<div class="cat-card">
+                <div class="cat-head">
+                  <span class="cat-ico"><svg viewBox="0 0 24 24" fill="none"><path d="M6 7h9M6 12h12M6 17h7"/></svg></span>
+                  <span class="cat-name">效率与任务</span> <span class="count">1</span>
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-shenshi)"><svg viewBox="0 0 24 24"><path d="M6 7h9M6 12h12M6 17h7"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">慎始</span><span class="srow-sum">任务、清单与看板</span></div>
+                  
+                </div>
+              </div>
+<div class="cat-card">
+                <div class="cat-head">
+                  <span class="cat-ico"><svg viewBox="0 0 24 24" fill="none"><rect x="4" y="6" width="14" height="12" rx="2"/><path d="M8 6l2-2h6l2 2"/></svg></span>
+                  <span class="cat-name">影像与媒体</span> <span class="count">4</span>
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-mujian)"><svg viewBox="0 0 24 24"><path d="M7 8c0-2 1.6-3.2 3.4-3.2S13.8 6 13.8 8c0 3-3.4 4.2-3.4 7.6"/><path d="M11 19.2c0-2 1.3-3.2 2.8-4.4"/><circle cx="17" cy="15.5" r="2.6"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">幕间</span><span class="srow-sum">观演与观影记录</span></div>
+                  
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-bili)"><svg viewBox="0 0 24 24"><path d="M9 7l8 5-8 5z"/><rect x="3.5" y="4.5" width="17" height="15" rx="3"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">拾帧集</span><span class="srow-sum">B 站观看历史与统计</span></div>
+                  <div class="ret"><span class="unread">3</span></div>
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-liuxia)"><svg viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="13" rx="2.5"/><path d="M7 15l3.2-3.2 2.2 2.2 3.6-3.6"/><circle cx="16" cy="9" r="1.2"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">流霞</span><span class="srow-sum">朝霞晚霞预报</span></div>
+                  
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-tuqie)"><svg viewBox="0 0 24 24"><circle cx="6.5" cy="7.5" r="2.2"/><circle cx="6.5" cy="16.5" r="2.2"/><path d="M8.5 9l10 8M18.5 7l-10 8"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">图切</span><span class="srow-sum">图片切割与导出</span></div>
+                  
+                </div>
+              </div>
+<div class="cat-card">
+                <div class="cat-head">
+                  <span class="cat-ico"><svg viewBox="0 0 24 24" fill="none"><path d="M4 17l5-6 3 3 6-8"/></svg></span>
+                  <span class="cat-name">财务</span> <span class="count">1</span>
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-huozhi)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5"/><path d="M12 4.5V12l5.3 5.3"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">货殖</span><span class="srow-sum">记账与资产概览</span></div>
+                  
+                </div>
+              </div>
+</div>
+
+<div class="col">
+<div class="cat-card">
+                <div class="cat-head">
+                  <span class="cat-ico"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6h5a2 2 0 012 2v10H6a2 2 0 00-2 2zM20 6h-5a2 2 0 00-2 2v10h5a2 2 0 012 2z"/></svg></span>
+                  <span class="cat-name">知识与阅读</span> <span class="count">4</span>
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-diarum)"><svg viewBox="0 0 24 24"><path d="M5 5.5h7a2 2 0 012 2V19a2 2 0 00-2-2H5zM19 5.5h-3a2 2 0 00-2 2V19a2 2 0 012-2h3z"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">吾身</span><span class="srow-sum">日记与定期回顾</span></div>
+                  
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-qingye)"><svg viewBox="0 0 24 24"><path d="M19 5C12 5 7 9 7 15c0 2 1 4 1 4s2-1 4-1c6 0 7-7 7-13z"/><path d="M8 19c1.5-4 4-6.5 8-8.5"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">青野集</span><span class="srow-sum">植物养护与提醒</span></div>
+                  
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-chaxin)"><svg viewBox="0 0 24 24"><rect x="4.5" y="5" width="15" height="14" rx="2"/><path d="M7.5 9.5h6M7.5 13h9M7.5 16h5"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">察新</span><span class="srow-sum">版本发布监控</span></div>
+                  
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-qiansi)"><svg viewBox="0 0 24 24"><circle cx="6" cy="7" r="1.8"/><circle cx="18" cy="7" r="1.8"/><circle cx="12" cy="18" r="1.8"/><path d="M7.5 8.5l3.4 7.4M16.5 8.5l-3.4 7.4M8 7h8"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">牵丝</span><span class="srow-sum">关系与脉络整理</span></div>
+                  
+                </div>
+              </div>
+<div class="cat-card">
+                <div class="cat-head">
+                  <span class="cat-ico"><svg viewBox="0 0 24 24" fill="none"><rect x="3.5" y="4" width="17" height="6" rx="1.5"/><rect x="3.5" y="14" width="17" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/></svg></span>
+                  <span class="cat-name">基建与运维</span> <span class="count">3</span>
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-ntfy)"><svg viewBox="0 0 24 24"><path d="M8 15V10a4 4 0 018 0v5l1.6 2H6.4z"/><path d="M10.6 19a1.5 1.5 0 002.8 0"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">ntfy</span><span class="srow-sum">自托管推送与告警</span></div>
+                  <div class="ret"><span class="unread">12</span></div>
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-qbhive)"><svg viewBox="0 0 24 24"><path d="M12 4v10M7.5 9.5L12 14l4.5-4.5"/><path d="M5 18h14"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">蜂巢</span><span class="srow-sum">下载任务管理</span></div>
+                  
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-whoami)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.6"/><circle cx="5.5" cy="6.5" r="1.5"/><circle cx="18.5" cy="6.5" r="1.5"/><circle cx="5.5" cy="17.5" r="1.5"/><circle cx="18.5" cy="17.5" r="1.5"/><path d="M7 7.5l3 3M17 7.5l-3 3M7 16.5l3-3M17 16.5l-3-3"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">whoami</span><span class="srow-sum">网络出口与身份信息</span></div>
+                  
+                </div>
+              </div>
+<div class="cat-card">
+                <div class="cat-head">
+                  <span class="cat-ico"><svg viewBox="0 0 24 24" fill="none"><path d="M6 16c0-5 4-9 9-9 0 5-4 9-9 9z"/></svg></span>
+                  <span class="cat-name">生活</span> <span class="count">1</span>
+                </div>
+                <div class="srow">
+                  <div class="glyph sm" style="--tint:var(--t-yuexi)"><svg viewBox="0 0 24 24"><path d="M15.5 4.8A7.5 7.5 0 1015.5 19a6 6 0 010-14.2z"/><path d="M18.5 6l.6 1.3 1.4.2-1 .9.2 1.4-1.2-.7-1.2.7.2-1.4-1-.9 1.4-.2z" class="fill"/></svg></div>
+                  <div class="srow-main"><span class="srow-name">月汐</span><span class="srow-sum">周期与身体记录</span></div>
+                  
+                </div>
+              </div>
+</div>
+</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="caption"><b>改造面：</b>新增 <code>MacRootView</code> + 菜单文件 + 状态桥接；深链需同时更新侧栏选中与 detail path。新增侧栏选中态、分组标题、折叠态三个局部样式。侧栏已承担分类导航，detail 里是否仍显示分类标题是骨架内部的选择；本图按「仍显示」绘制。</div>
+  </section>
+
+  </details>
+
+</main>
+
+<footer>
+  本参考稿与 <code>docs/DESIGN-macOS.md</code> 配套。所有色值与尺寸取自代码：<code>DesignSystem.swift</code>、<code>CatalogView.swift</code>、<code>ServiceCatalog.swift</code>、<code>AccentColor.colorset</code>。<br>
+  SF Symbol 以占位字形示意，实际渲染为系统符号；导航骨架 03 / 04 并列呈现，本页不表示取向。
+</footer>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    var btn = document.getElementById('themeBtn');
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    root.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+    btn.addEventListener('click', function () {
+      root.setAttribute('data-theme', root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+    });
+    // 卡片悬停：只加描边与阴影，不做形变
+    document.querySelectorAll('.card').forEach(function (c) {
+      c.addEventListener('mouseenter', function () { c.classList.add('hover'); });
+      c.addEventListener('mouseleave', function () { c.classList.remove('hover'); });
+    });
+  })();
+</script>
+</body>
+</html>

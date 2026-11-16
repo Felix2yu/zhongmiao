@@ -140,27 +140,27 @@ struct LiuxiaScreen: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 6) {
                     Text(upcoming.isEmpty ? "未来 48 小时" : "下一场")
-                        .font(.caption)
+                        .zmFont(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
                     if let city = selectedCity {
-                        Text(city).font(.caption2).foregroundStyle(.secondary)
+                        Text(city).zmFont(.caption2).foregroundStyle(.secondary)
                     }
                 }
 
                 if let hero = nearest, let at = hero.occursAt() {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Image(systemName: hero.kind.symbol)
-                            .font(.title3)
+                            .zmFont(.title3)
                             .foregroundStyle(qualityColor(hero.quality))
                         Text(hero.kind.title)
-                            .font(.title3.weight(.semibold))
+                            .zmFont(.title3, weight: .semibold)
                         Text(at.formatted(.dateTime.month().day().hour().minute()))
-                            .font(.subheadline.monospacedDigit())
+                            .zmFont(.subheadline, monospacedDigit: true)
                             .foregroundStyle(.secondary)
                         Spacer()
                         Text(LiuxiaForecast.countdown(from: context.date, to: at))
-                            .font(.caption.weight(.semibold).monospacedDigit())
+                            .zmFont(.caption, weight: .semibold, monospacedDigit: true)
                             .foregroundStyle(qualityColor(hero.quality))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
@@ -171,12 +171,12 @@ struct LiuxiaScreen: View {
                         CapsuleTag(text: hero.qualityLabel, tint: qualityColor(hero.quality))
                         if let quality = hero.quality {
                             Text(String(format: "%.2f", quality))
-                                .font(.caption2.monospacedDigit())
+                                .zmFont(.caption2, monospacedDigit: true)
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
                         Text(hero.kind.viewingHint)
-                            .font(.caption2)
+                            .zmFont(.caption2)
                             .foregroundStyle(.tertiary)
                     }
 
@@ -189,19 +189,19 @@ struct LiuxiaScreen: View {
                         Divider()
                         HStack(spacing: 6) {
                             Image(systemName: "sparkles")
-                                .font(.caption2)
+                                .zmFont(.caption2)
                                 .foregroundStyle(qualityColor(best.quality))
                             Text("更值得看：\(dayLabel(best.date)) \(best.time ?? "") \(best.kind.title) · \(best.qualityLabel)")
-                                .font(.caption)
+                                .zmFont(.caption)
                             Spacer()
                             Text(LiuxiaForecast.countdown(from: context.date, to: bestAt))
-                                .font(.caption2.monospacedDigit())
+                                .zmFont(.caption2, monospacedDigit: true)
                                 .foregroundStyle(.secondary)
                         }
                     }
                 } else {
                     Text("未来 48 小时还没有新预报")
-                        .font(.subheadline)
+                        .zmFont(.subheadline)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -239,9 +239,9 @@ struct LiuxiaScreen: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 6) {
                     Text(label)
-                        .font(.caption.weight(.semibold))
+                        .zmFont(.caption, weight: .semibold)
                     Text(shortDay(day))
-                        .font(.caption2.monospacedDigit())
+                        .zmFont(.caption2, monospacedDigit: true)
                         .foregroundStyle(.secondary)
                     Spacer()
                 }
@@ -263,30 +263,30 @@ struct LiuxiaScreen: View {
         return VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 4) {
                 Image(systemName: kind.symbol)
-                    .font(.caption)
+                    .zmFont(.caption)
                     .foregroundStyle(event.map { qualityColor($0.quality) } ?? .secondary)
                 Text(kind.title)
-                    .font(.caption.weight(.medium))
+                    .zmFont(.caption, weight: .medium)
                 Spacer()
                 if passed {
                     Text("已过")
-                        .font(.caption2)
+                        .zmFont(.caption2)
                         .foregroundStyle(.tertiary)
                 }
             }
 
             if let event, let time = event.time {
                 Text(time)
-                    .font(.title3.weight(.semibold).monospacedDigit())
+                    .zmFont(.title3, weight: .semibold, monospacedDigit: true)
                 Text(event.qualityLabel)
-                    .font(.caption2)
+                    .zmFont(.caption2)
                     .foregroundStyle(qualityColor(event.quality))
             } else {
                 Text("—")
-                    .font(.title3.weight(.semibold))
+                    .zmFont(.title3, weight: .semibold)
                     .foregroundStyle(.tertiary)
                 Text("无预报")
-                    .font(.caption2)
+                    .zmFont(.caption2)
                     .foregroundStyle(.tertiary)
             }
         }
@@ -305,13 +305,13 @@ struct LiuxiaScreen: View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: event.kind.symbol)
-                    .font(.caption)
+                    .zmFont(.caption)
                     .foregroundStyle(qualityColor(event.quality))
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(dayLabel(event.date)) \(event.time ?? "") · \(event.kind.title)")
-                        .font(.subheadline.monospacedDigit())
+                        .zmFont(.subheadline, monospacedDigit: true)
                     Text(event.city)
-                        .font(.caption2)
+                        .zmFont(.caption2)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -319,7 +319,7 @@ struct LiuxiaScreen: View {
                     CapsuleTag(text: event.qualityLabel, tint: qualityColor(event.quality))
                     if let at = event.occursAt() {
                         Text(LiuxiaForecast.countdown(from: context.date, to: at))
-                            .font(.caption2.monospacedDigit())
+                            .zmFont(.caption2, monospacedDigit: true)
                             .foregroundStyle(.tertiary)
                     }
                 }
@@ -346,7 +346,7 @@ struct LiuxiaScreen: View {
     private func chip(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.caption.weight(.medium))
+                .zmFont(.caption, weight: .medium)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
                 .foregroundStyle(selected ? Color.white : Color.secondary)

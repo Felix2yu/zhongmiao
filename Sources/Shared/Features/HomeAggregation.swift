@@ -409,11 +409,11 @@ struct HomeDigestCard: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Label("今天", systemImage: "sun.max.fill")
-                    .font(.footnote.weight(.semibold))
+                    .zmFont(.footnote, weight: .semibold)
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 6)
                 Text("\(items.count) 件")
-                    .font(.caption2)
+                    .zmFont(.caption2)
                     .foregroundStyle(.secondary)
             }
 
@@ -433,7 +433,7 @@ struct HomeDigestCard: View {
 
             if items.count > Self.visibleLimit {
                 Text("另有 \(items.count - Self.visibleLimit) 件，进入对应应用查看")
-                    .font(.caption2)
+                    .zmFont(.caption2)
                     .foregroundStyle(.secondary)
             }
         }
@@ -448,7 +448,7 @@ struct HomeDigestCard: View {
     private func row(_ item: HomeDigestItem) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: item.symbol)
-                .font(.system(size: 12, weight: .semibold))
+                .zmFont(size: 12, weight: .semibold)
                 .foregroundStyle(.tint)
                 .frame(width: 24, height: 24)
                 .background(
@@ -459,11 +459,11 @@ struct HomeDigestCard: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)
-                    .font(.subheadline)
+                    .zmFont(.subheadline)
                     .foregroundStyle(.primary)
                     .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
                 Text(item.subtitle)
-                    .font(.caption2)
+                    .zmFont(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
             }
@@ -471,7 +471,7 @@ struct HomeDigestCard: View {
             Spacer(minLength: 6)
 
             Text(ServiceDisplay.name(for: item.serviceID))
-                .font(.caption2)
+                .zmFont(.caption2)
                 .foregroundStyle(.secondary)
         }
         .padding(.vertical, 6)
@@ -488,7 +488,7 @@ struct HomeSearchHitsCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("匹配的条目 · \(hits.count)")
-                .font(.footnote.weight(.semibold))
+                .zmFont(.footnote, weight: .semibold)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 2)
 
@@ -496,17 +496,17 @@ struct HomeSearchHitsCard: View {
                 ForEach(groups) { group in
                     VStack(alignment: .leading, spacing: 2) {
                         Text(ServiceDisplay.name(for: group.id))
-                            .font(.caption2)
+                            .zmFont(.caption2)
                             .foregroundStyle(.secondary)
                         ForEach(group.hits) { hit in
                             NavigationLink(value: AppModel.Route(serviceID: hit.serviceID, target: hit.target)) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(hit.title)
-                                        .font(.subheadline)
+                                        .zmFont(.subheadline)
                                         .foregroundStyle(.primary)
                                         .lineLimit(1)
                                     Text(hit.subtitle)
-                                        .font(.caption2)
+                                        .zmFont(.caption2)
                                         .foregroundStyle(.secondary)
                                         .lineLimit(1)
                                 }

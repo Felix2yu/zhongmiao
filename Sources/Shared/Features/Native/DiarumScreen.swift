@@ -194,9 +194,9 @@ struct DiarumScreen: View {
 
                 VStack(spacing: 2) {
                     Text(dateTitle)
-                        .font(.subheadline.weight(.semibold))
+                        .zmFont(.subheadline, weight: .semibold)
                     Text(dateSubtitle)
-                        .font(.caption2)
+                        .zmFont(.caption2)
                         .foregroundStyle(.secondary)
                 }
                 // 标题文案跟着系统语言走，断言不了；给一个稳定的 ISO 值。
@@ -223,7 +223,7 @@ struct DiarumScreen: View {
                 // 编辑框始终在位：没登录也让你能写，写之前会提示先连接。
                 // 加载中不换掉编辑框，只加一个小转圈——换掉会丢焦点，也会让正在输入的内容闪一下。
                 TextEditor(text: $text)
-                    .font(.body)
+                    .zmFont(.body)
                     .frame(minHeight: 220)
                     .scrollContentBackground(.hidden)
                     .accessibilityIdentifier("diarum.editor")
@@ -237,7 +237,7 @@ struct DiarumScreen: View {
                     .overlay(alignment: .topLeading) {
                         if text.isEmpty {
                             Text("写点什么…")
-                                .font(.body)
+                                .zmFont(.body)
                                 .foregroundStyle(.tertiary)
                                 .padding(.top, 8)
                                 .padding(.leading, 5)
@@ -251,14 +251,14 @@ struct DiarumScreen: View {
                     ProgressView().controlSize(.small)
                 }
                 Text(statusText)
-                    .font(.caption2)
+                    .zmFont(.caption2)
                     .foregroundStyle(isDirty ? .orange : .secondary)
                 Spacer()
                 if let mood = baseline?.mood, mood > 0 {
                     moodTag(mood)
                 }
                 Text("\(text.count) 字")
-                    .font(.caption2.monospacedDigit())
+                    .zmFont(.caption2, monospacedDigit: true)
                     .foregroundStyle(.secondary)
             }
             .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 8, trailing: 16))
@@ -282,7 +282,7 @@ struct DiarumScreen: View {
                         VStack(alignment: .leading, spacing: 3) {
                             HStack {
                                 Text(diary.date)
-                                    .font(.caption2.monospacedDigit())
+                                    .zmFont(.caption2, monospacedDigit: true)
                                     .foregroundStyle(.secondary)
                                 Spacer()
                                 if diary.date == currentDateString {
@@ -290,7 +290,7 @@ struct DiarumScreen: View {
                                 }
                             }
                             Text(diary.content ?? "")
-                                .font(.caption)
+                                .zmFont(.caption)
                                 .lineLimit(2)
                                 .foregroundStyle(.primary)
                         }
@@ -329,10 +329,10 @@ struct DiarumScreen: View {
             if isSearching {
                 HStack {
                     ProgressView().controlSize(.small)
-                    Text("正在搜索…").font(.caption).foregroundStyle(.secondary)
+                    Text("正在搜索…").zmFont(.caption).foregroundStyle(.secondary)
                 }
             } else if let searchError {
-                Text(searchError).font(.caption).foregroundStyle(.red)
+                Text(searchError).zmFont(.caption).foregroundStyle(.red)
             } else if !hits.isEmpty {
                 ForEach(hits) { hit in
                     Button {
@@ -340,10 +340,10 @@ struct DiarumScreen: View {
                     } label: {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(hit.date)
-                                .font(.caption2.monospacedDigit())
+                                .zmFont(.caption2, monospacedDigit: true)
                                 .foregroundStyle(.secondary)
                             Text(hit.snippet ?? "")
-                                .font(.caption)
+                                .zmFont(.caption)
                                 .lineLimit(2)
                                 .foregroundStyle(.primary)
                         }
@@ -409,10 +409,10 @@ struct DiarumScreen: View {
     private func metric(_ title: String, value: String, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
-                .font(.caption2)
+                .zmFont(.caption2)
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.subheadline.weight(.semibold).monospacedDigit())
+                .zmFont(.subheadline, weight: .semibold, monospacedDigit: true)
                 .foregroundStyle(tint)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)

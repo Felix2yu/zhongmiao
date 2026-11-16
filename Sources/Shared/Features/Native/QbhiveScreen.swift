@@ -78,12 +78,12 @@ struct QbhiveScreen: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(feed.feedName ?? feed.feedId ?? "RSS")
-                                    .font(.subheadline)
+                                    .zmFont(.subheadline)
                                 if let error = feed.lastError, !error.isEmpty {
-                                    Text(error).font(.caption2).foregroundStyle(.red)
+                                    Text(error).zmFont(.caption2).foregroundStyle(.red)
                                 } else {
                                     Text("匹配 \(feed.matched ?? 0) · 下载 \(feed.downloaded ?? 0) · 失败 \(feed.failed ?? 0)")
-                                        .font(.caption2)
+                                        .zmFont(.caption2)
                                         .foregroundStyle(.secondary)
                                 }
                             }
@@ -154,10 +154,10 @@ struct QbhiveScreen: View {
     private func speedMetric(_ title: String, value: Double, symbol: String, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Label(title, systemImage: symbol)
-                .font(.caption2)
+                .zmFont(.caption2)
                 .foregroundStyle(.secondary)
             Text(bytesPerSecond(value))
-                .font(.title3.weight(.semibold).monospacedDigit())
+                .zmFont(.title3, weight: .semibold, monospacedDigit: true)
                 .foregroundStyle(tint)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -178,10 +178,10 @@ struct QbhiveScreen: View {
     private func countItem(_ title: String, _ value: Int, _ tint: Color) -> some View {
         VStack(spacing: 2) {
             Text("\(value)")
-                .font(.subheadline.weight(.semibold).monospacedDigit())
+                .zmFont(.subheadline, weight: .semibold, monospacedDigit: true)
                 .foregroundStyle(tint)
             Text(title)
-                .font(.caption2)
+                .zmFont(.caption2)
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -195,7 +195,7 @@ struct QbhiveScreen: View {
                         store.filter = filter
                     } label: {
                         Text(filter.title)
-                            .font(.caption.weight(.medium))
+                            .zmFont(.caption, weight: .medium)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
                             .foregroundStyle(store.filter == filter ? Color.white : Color.secondary)
@@ -221,11 +221,11 @@ struct QbhiveScreen: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text(torrent.name)
-                            .font(.subheadline)
+                            .zmFont(.subheadline)
                             .lineLimit(2)
                         Spacer(minLength: 6)
                         Text("\(Int((torrent.progress ?? 0) * 100))%")
-                            .font(.caption2.monospacedDigit())
+                            .zmFont(.caption2, monospacedDigit: true)
                             .foregroundStyle(.secondary)
                     }
 
@@ -234,21 +234,21 @@ struct QbhiveScreen: View {
 
                     HStack(spacing: 8) {
                         Text(torrent.state ?? "未知")
-                            .font(.caption2)
+                            .zmFont(.caption2)
                             .foregroundStyle(torrent.isErrored ? .red : .secondary)
                         if let size = torrent.size {
                             Text(formatBytes(size))
-                                .font(.caption2.monospacedDigit())
+                                .zmFont(.caption2, monospacedDigit: true)
                                 .foregroundStyle(.secondary)
                         }
                         if let down = torrent.dlspeed, down > 0 {
                             Text("↓" + bytesPerSecond(down))
-                                .font(.caption2.monospacedDigit())
+                                .zmFont(.caption2, monospacedDigit: true)
                                 .foregroundStyle(.blue)
                         }
                         if let up = torrent.upspeed, up > 0 {
                             Text("↑" + bytesPerSecond(up))
-                                .font(.caption2.monospacedDigit())
+                                .zmFont(.caption2, monospacedDigit: true)
                                 .foregroundStyle(.green)
                         }
                     }

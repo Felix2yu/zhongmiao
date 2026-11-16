@@ -77,8 +77,36 @@ struct AppSettings: Codable, Hashable, Sendable {
     var inboxCapacity: Int
     /// 是否在服务卡片上显示「离线可用」等能力标签。
     ///
-    /// 默认开启；关掉后卡片只保留「未配置」这类真正需要处理的告警。
+    /// 关掉后只保留「未配置」这类真正需要处理的告警：能力是恒定属性，
+    /// 状态才需要提醒。macOS 上初值关（行条目横向空间不够，见 `defaultShowsCapabilityTags`）。
     var showServiceCapabilityTags: Bool
+
+    /// 能力标签的平台初值。
+    ///
+    /// macOS 首页是 44pt 行条目，Glyph、名称、摘要已经在抢同一根横轴，
+    /// 再挂一个 14 行里出现 12 次的同款绿标签只会挤掉摘要；iOS 的 132pt 竖卡
+    /// 上下堆叠，横向余量够，保持开启。两端各自一份 `UserDefaults`，互不影响。
+    static var defaultShowsCapabilityTags: Bool {
+        #if os(iOS)
+        true
+        #else
+        false
+        #endif
+    }
+
+    /// 原生界面的缩放倍数（1 = 标准，1.15 / 1.3 / 1.45 逐档放大）。
+    ///
+    /// 4K 显示器上 13pt 正文与 28pt 图标偏小，而 macOS 上 SwiftUI 的语义字号
+    /// 不响应动态字体（实测 `dynamicTypeSize` 在 macOS 上对 `.body` 完全无效），
+    /// 只能自己按倍数重算。只影响原生壳层，网页内容由页面自己排版。
+    var interfaceScale: Double
+
+    /// 缩放倍数归一化：设置可能来自旧存档或手改，夹在可用区间内。
+    static let interfaceScaleRange: ClosedRange<Double> = 1...1.45
+
+    var interfaceScaleFactor: Double {
+        min(max(interfaceScale, Self.interfaceScaleRange.lowerBound), Self.interfaceScaleRange.upperBound)
+    }
 
     /// 站外链接是否留在应用内打开。
     ///
@@ -121,7 +149,8 @@ struct AppSettings: Codable, Hashable, Sendable {
         backgroundRefreshEnabled: Bool = true,
         lookbackHours: Int = 24,
         inboxCapacity: Int = 500,
-        showServiceCapabilityTags: Bool = true,
+        showServiceCapabilityTags: Bool = AppSettings.defaultShowsCapabilityTags,
+        interfaceScale: Double = 1,
         keepExternalLinksInApp: Bool = true,
         showsEnabled: Bool = true,
         showsReminderLeadHours: Int = 4,
@@ -139,6 +168,7 @@ struct AppSettings: Codable, Hashable, Sendable {
         self.lookbackHours = lookbackHours
         self.inboxCapacity = inboxCapacity
         self.showServiceCapabilityTags = showServiceCapabilityTags
+        self.interfaceScale = interfaceScale
         self.keepExternalLinksInApp = keepExternalLinksInApp
         self.showsEnabled = showsEnabled
         self.showsReminderLeadHours = showsReminderLeadHours
@@ -153,6 +183,7 @@ struct AppSettings: Codable, Hashable, Sendable {
         case addressing, servicePreferences, relayURL
         case ntfyBaseURLOverride, backgroundRefreshEnabled, lookbackHours, inboxCapacity
         case showServiceCapabilityTags
+        case interfaceScale
         case keepExternalLinksInApp
         case showsEnabled, showsReminderLeadHours, showsIslandLeadHours
         case showsUseMujianAPI, showsUseCalendar, showsCalendarKeywords
@@ -170,7 +201,9 @@ struct AppSettings: Codable, Hashable, Sendable {
         backgroundRefreshEnabled = try container.decodeIfPresent(Bool.self, forKey: .backgroundRefreshEnabled) ?? true
         lookbackHours = try container.decodeIfPresent(Int.self, forKey: .lookbackHours) ?? 24
         inboxCapacity = try container.decodeIfPresent(Int.self, forKey: .inboxCapacity) ?? 500
-        showServiceCapabilityTags = try container.decodeIfPresent(Bool.self, forKey: .showServiceCapabilityTags) ?? true
+        showServiceCapabilityTags = try container.decodeIfPresent(Bool.self, forKey: .showServiceCapabilityTags)
+            ?? Self.defaultShowsCapabilityTags
+        interfaceScale = try container.decodeIfPresent(Double.self, forKey: .interfaceScale) ?? 1
         keepExternalLinksInApp = try container.decodeIfPresent(Bool.self, forKey: .keepExternalLinksInApp) ?? true
         showsEnabled = try container.decodeIfPresent(Bool.self, forKey: .showsEnabled) ?? true
         showsReminderLeadHours = try container.decodeIfPresent(Int.self, forKey: .showsReminderLeadHours) ?? 4

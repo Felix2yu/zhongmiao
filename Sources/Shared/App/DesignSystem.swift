@@ -32,7 +32,7 @@ extension Color {
         #if os(iOS)
         Color(uiColor: .systemGroupedBackground)
         #else
-        Color(nsColor: .windowBackgroundColor)
+        Color(nsColor: macGrouped)
         #endif
     }
 
@@ -41,9 +41,30 @@ extension Color {
         #if os(iOS)
         Color(uiColor: .secondarySystemGroupedBackground)
         #else
-        Color(nsColor: .controlBackgroundColor)
+        Color(nsColor: macCard)
         #endif
     }
+
+    #if os(macOS)
+    // macOS 没有「分组背景」这一层，语义色会撞车：
+    // `windowBackgroundColor` 与 `controlBackgroundColor` 亮态同为 255、暗态同为 30，
+    // 卡片直接取这两者会和页面糊成一片（只剩 0.5pt 描边可辨）。iOS 上一对是
+    // 242 / 255，卡片才立得起来。
+    //
+    // 这里不新造颜色，只在 AppKit 已有的中性阶里挑「页面偏暗一档、卡片偏亮一档」：
+    // 亮 246 / 255，暗 30 / 40。关系与 iOS 的 grouped / card 一致。
+    private static let macGrouped = NSColor(name: nil) { appearance in
+        isDark(appearance) ? .windowBackgroundColor : .underPageBackgroundColor
+    }
+
+    private static let macCard = NSColor(name: nil) { appearance in
+        isDark(appearance) ? .underPageBackgroundColor : .controlBackgroundColor
+    }
+
+    private static func isDark(_ appearance: NSAppearance) -> Bool {
+        appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+    }
+    #endif
 }
 
 // MARK: - 服务图标
@@ -54,8 +75,14 @@ struct ServiceGlyph: View {
     let service: ServiceDefinition
     var size: CGFloat = 44
 
+    @Environment(\.interfaceScale) private var scale
+
+    /// 图标尺寸随界面缩放，符号字号再按盒子的 0.44 反推——
+    /// 两处都乘倍数会叠加成两次放大。
+    private var box: CGFloat { size.zmScaled(scale) }
+
     var body: some View {
-        RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+        RoundedRectangle(cornerRadius: box * 0.28, style: .continuous)
             .fill(
                 LinearGradient(
                     colors: [
@@ -68,10 +95,10 @@ struct ServiceGlyph: View {
             )
             .overlay {
                 Image(systemName: service.symbol)
-                    .font(.system(size: size * 0.44, weight: .medium))
+                    .font(.system(size: box * 0.44, weight: .medium))
                     .foregroundStyle(.white)
             }
-            .frame(width: size, height: size)
+            .frame(width: box, height: box)
             .accessibilityHidden(true)
     }
 }
@@ -87,11 +114,11 @@ struct CapsuleTag: View {
         HStack(spacing: 3) {
             if let systemImage {
                 Image(systemName: systemImage)
-                    .font(.caption2.weight(.semibold))
+                    .zmFont(.caption2, weight: .semibold)
                     .foregroundStyle(tint)
             }
             Text(text)
-                .font(.caption2.weight(.medium))
+                .zmFont(.caption2, weight: .medium)
                 .foregroundStyle(.primary)
         }
         .padding(.horizontal, 6)
@@ -113,10 +140,10 @@ struct OfflineBanner: View {
                     .controlSize(.mini)
             } else {
                 Image(systemName: "wifi.slash")
-                    .font(.footnote.weight(.semibold))
+                    .zmFont(.footnote, weight: .semibold)
             }
             Text(text)
-                .font(.footnote)
+                .zmFont(.footnote)
                 .lineLimit(2)
             Spacer(minLength: 0)
         }
@@ -140,12 +167,12 @@ struct EmptyStateView: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: symbol)
-                .font(.system(size: 40, weight: .light))
+                .zmFont(size: 40, weight: .light)
                 .foregroundStyle(.tertiary)
             Text(title)
-                .font(.headline)
+                .zmFont(.headline)
             Text(message)
-                .font(.subheadline)
+                .zmFont(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
@@ -172,12 +199,12 @@ struct LoadFailureView: View {
     var body: some View {
         VStack(spacing: 14) {
             Image(systemName: "antenna.radiowaves.left.and.right.slash")
-                .font(.system(size: 38, weight: .light))
+                .zmFont(size: 38, weight: .light)
                 .foregroundStyle(.tertiary)
             Text(title)
-                .font(.headline)
+                .zmFont(.headline)
             Text(detail)
-                .font(.subheadline)
+                .zmFont(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
