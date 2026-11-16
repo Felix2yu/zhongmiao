@@ -15,7 +15,7 @@ enum BridgeEvent: Sendable, Equatable {
 @MainActor
 final class WebBridgeHandler: NSObject, WKScriptMessageHandler {
 
-    var onEvent: ((BridgeEvent) -> Void)?
+    var onEvent: (@MainActor (BridgeEvent) -> Void)?
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.name == "zm", let payload = message.body as? [String: Any] else { return }

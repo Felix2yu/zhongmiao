@@ -41,8 +41,8 @@ final class WebAppModel {
     /// 站外链接是否留在应用内（随设置变化，由 `ServiceScreen` 调 `updatePolicy` 同步）。
     private(set) var policy = WebContentPolicy()
     private let bridge = WebBridgeHandler()
-    private var onNotification: ((NotificationItem) -> Void)?
-    private var onLog: ((String) -> Void)?
+    private var onNotification: (@MainActor (NotificationItem) -> Void)?
+    private var onLog: (@MainActor (String) -> Void)?
     private var activated = false
     /// 6.2 `Observations` 的长驻观察任务；`isolated deinit` 里取消。
     @ObservationIgnored
@@ -69,8 +69,8 @@ final class WebAppModel {
 
     /// 由 `ServiceScreen` 的 `.task` 启动：先接好回调，再加载首屏并长期监听导航事件。
     func activate(
-        onNotification: @escaping (NotificationItem) -> Void,
-        onLog: @escaping (String) -> Void
+        onNotification: @escaping @MainActor (NotificationItem) -> Void,
+        onLog: @escaping @MainActor (String) -> Void
     ) async {
         guard !activated else { return }
         activated = true

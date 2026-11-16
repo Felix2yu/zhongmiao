@@ -18,8 +18,8 @@ final class NetworkMonitor {
     /// 连续状态变化次数，便于 UI 观察真实抖动而非单次回调。
     private(set) var transitionCount = 0
 
-    /// 重连回调（离线 → 在线）。
-    var onReconnect: (() -> Void)?
+    /// 重连回调（离线 → 在线）。只在主 actor 上触发，接线方也都在主 actor。
+    var onReconnect: (@MainActor () -> Void)?
 
     private let monitor = NWPathMonitor()
     private let queue = DispatchQueue(label: "im.yufei.zhongmiao.network")

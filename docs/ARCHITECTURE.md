@@ -50,7 +50,8 @@ PWA 在 iOS 上最弱的事情上补强；对有稳定 HTTP API 的应用，再�
 - `IntegrationCenter` 是 **@MainActor @Observable**，由 `AppModel` 持有；`IntegrationCache` 是 actor，
   快照读写只在它内部发生。各应用 Client 是无状态 `struct Sendable`，凭据每次从 `SecretStore` 取。
 - `FeedClients` / `NotificationScheduler` 是无状态或只读依赖，标 `Sendable`，可跨隔离域调用。
-- WKWebView 的 KVO 回调在主线程触发，用 `MainActor.assumeIsolated` 就地更新，避免无意义的 hop。
+- `WebPage` 的 `@Observable` 属性由 `Observations` 异步序列观察，在 `@MainActor` 的 `WebAppModel` 内合并；WK 代理（`WebBridgeHandler`、`WebNavigationDecider`、`InAppWebView.Coordinator`）统一标 `@MainActor`，没有手动线程切换或 `MainActor.assumeIsolated`。
+- 会回写 UI 状态的回调在**类型层面**标注 `@MainActor`：`NetworkMonitor.onReconnect`、`WebAppModel.activate` 的两个回调、`WebBridgeHandler.onEvent`、`FormSubmitState.run` 的 action 与 `refreshWhenIntegrationReady` 的 action；接线点因此由编译器约束在主 actor。
 - 后台任务里 `BGTask` 不是 `Sendable`，用受控包装 `TaskHandle` 跨域传递。
 
 ## 地址解析
@@ -81,7 +82,7 @@ PWA 在 iOS 上最弱的事情上补强；对有稳定 HTTP API 的应用，再�
 | 网络恢复 | `NWPathMonitor` 触发 `reloadFromOrigin()`，绕过旧缓存拿新版本 |
 | WebContent 进程被回收 | `webViewWebContentProcessDidTerminate` 立即重载，避免白屏 |
 | 下拉刷新 | `UIRefreshControl` → 普通 `reload()`，优先命中 Service Worker 缓存 |
-| JS 弹窗 | 用原生 `UIAlertController` / `NSAlert` 实现 alert / confirm / prompt（签名带 `@MainActor`，否则系统不会回调） |
+| JS 弹窗 | 用原生对话框实现 alert / confirm / prompt |
 
 ## 原生接入
 

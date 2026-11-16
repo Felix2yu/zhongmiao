@@ -18,7 +18,7 @@ final class FormSubmitState {
 
     /// 执行一次提交，返回是否成功。
     @discardableResult
-    func run(_ action: () async -> String?) async -> Bool {
+    func run(_ action: @MainActor () async -> String?) async -> Bool {
         guard !isSaving else { return false }
         isSaving = true
         error = nil
@@ -36,7 +36,7 @@ extension View {
     func refreshWhenIntegrationReady(
         center: IntegrationCenter,
         serviceID: String,
-        action: @escaping () -> Void
+        action: @escaping @MainActor () -> Void
     ) -> some View {
         onChange(of: center.state(for: serviceID)) { _, state in
             if state.isUsable {
