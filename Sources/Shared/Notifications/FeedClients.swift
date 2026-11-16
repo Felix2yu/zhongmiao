@@ -85,7 +85,7 @@ struct FeedClients: Sendable {
         attempts: Int = 3,
         _ operation: @Sendable () async throws -> T
     ) async throws -> T {
-        var lastError: (any Error)?
+        var lastError: any Error?
         for attempt in 1...max(1, attempts) {
             do {
                 return try await operation()

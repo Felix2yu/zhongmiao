@@ -5,7 +5,7 @@
 
 - **部署形态**：所有应用跑在 Docker 里，外层 Nginx + HTTPS（子域名反代）
 - **平台**：iOS 27+（主），macOS 27+（同源码编译，能力预留）
-- **技术栈**：SwiftUI + WebKit `WebPage`/`WebView`（iOS 26+ 原生 API）+ Swift 6 并发 + SwiftPM 核心包
+- **技术栈**：SwiftUI + WebKit `WebPage`/`WebView`（iOS 26+ 原生 API）+ Swift 6.4 并发 + SwiftPM 核心包
 - **依赖**：零第三方库。工程用 XcodeGen 生成。
 
 ## 现在能做什么

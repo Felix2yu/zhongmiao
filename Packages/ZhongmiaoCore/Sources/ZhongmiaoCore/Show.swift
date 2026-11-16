@@ -213,7 +213,6 @@ import ActivityKit
 /// macOS target 与 `swift test` 不受影响——ZhongmiaoCore 依旧只依赖 Foundation。
 ///
 /// 注意 4KB 预算：只放岛内能渲染的字段，封面图一律不进。
-@available(iOS 16.2, *)
 public struct ShowActivityAttributes: ActivityAttributes {
 
     public struct ContentState: Codable, Hashable, Sendable {

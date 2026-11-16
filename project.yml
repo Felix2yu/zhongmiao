@@ -18,7 +18,10 @@ settings:
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "2"
     ZM_BUILD_STAMP: "2026-10-27 14:56"
-    SWIFT_VERSION: "6.0"
+    SWIFT_VERSION: "6.4"
+    # Swift 6.2 的默认 MainActor 隔离暂不全局开启：主 App 的 Sources/Shared
+    # 同时包含 UI 与后台模型（193 个值类型被 actor 使用），需要先把数据模型
+    # 标成 nonisolated 才能整体切换。Widget/App 目标后续单独迁移。
     SWIFT_STRICT_CONCURRENCY: complete
     CODE_SIGN_STYLE: Automatic
     ENABLE_USER_SCRIPT_SANDBOXING: YES

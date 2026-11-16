@@ -44,6 +44,13 @@ final class WebAppModel {
     private var onNotification: ((NotificationItem) -> Void)?
     private var onLog: ((String) -> Void)?
     private var activated = false
+    /// 6.2 `Observations` 的长驻观察任务；`isolated deinit` 里取消。
+    @ObservationIgnored
+    private var observationTask: Task<Void, Never>?
+
+    isolated deinit {
+        observationTask?.cancel()
+    }
 
     init(service: ServiceDefinition, initialURL: URL) {
         self.service = service
@@ -199,15 +206,15 @@ final class WebAppModel {
 
     // MARK: - 状态同步
 
-    /// WebPage 的标题/进度/加载状态都是 `@Observable`：注册一轮跟踪，
-    /// 任一变化就重新镜像并再次注册。
+    /// WebPage 的标题/进度/加载状态都是 `@Observable`：用 6.2 的 `Observations`
+    /// 异步序列跨事务观察，任一同步变化合并成一次镜像，不再每轮手动重注册。
     private func trackPageObservation() {
-        withObservationTracking {
-            syncFromPage()
-        } onChange: { [weak self] in
-            Task { @MainActor [weak self] in
-                self?.trackPageObservation()
-            }
+        syncFromPage()
+        observationTask?.cancel()
+        observationTask = Task(name: "WebAppModel.page") { [weak self] in
+            for await _ in Observations({ [weak self] in
+                self?.syncFromPage()
+            }) {}
         }
     }
 

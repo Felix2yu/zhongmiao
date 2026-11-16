@@ -1,12 +1,12 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.4
 import PackageDescription
 
 let package = Package(
     name: "ZhongmiaoCore",
     defaultLocalization: "zh-Hans",
     platforms: [
-        .iOS(.v17),
-        .macOS(.v14)
+        .iOS(.v27),
+        .macOS(.v27)
     ],
     products: [
         .library(name: "ZhongmiaoCore", targets: ["ZhongmiaoCore"]),
@@ -16,7 +16,9 @@ let package = Package(
         .target(
             name: "ZhongmiaoCore",
             swiftSettings: [
-                .enableUpcomingFeature("ExistentialAny")
+                .enableUpcomingFeature("ExistentialAny"),
+                // Swift 6.2 的诊断组控制：升级到 6.4 后把警告当错误。
+                .treatAllWarnings(as: .error)
             ]
         ),
         .executableTarget(

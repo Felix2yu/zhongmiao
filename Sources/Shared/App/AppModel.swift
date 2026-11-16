@@ -735,8 +735,8 @@ final class AppModel {
             health[service.id] = .notConfigured
         }
 
-        Task {
-            await withTaskGroup(of: (String, ServiceHealth).self) { group in
+        Task(name: "AppModel.probeAll") {
+            await withTaskGroup { group in
                 for (id, url) in pairs {
                     group.addTask {
                         (id, await feeds.probe(url))
